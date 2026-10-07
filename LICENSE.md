@@ -1,4 +1,4 @@
-Copyright 2026 formbase AS
+Copyright 2026 Formbase AS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
