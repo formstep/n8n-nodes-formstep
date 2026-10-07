@@ -77,7 +77,7 @@ describe('Formstep node lifecycle', () => {
       waitForOutcome: true,
       additionalFields: { externalId: 'run-42', metadata: '{"runId":"run-42"}' },
     })
-    expect(created).toMatchObject({ id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_req_1', hasCallback: true, deduplicated: false })
+    expect(created).toMatchObject({ id: 'req_1', status: 'pending', url: 'https://form.formstep.io/r/rq_req_1', hasCallback: true, deduplicated: false })
     expect(formstep.requests.get('req_1')?.params).toEqual({
       formId: 'form_live',
       recipient: { email: 'ada@acme.com' },

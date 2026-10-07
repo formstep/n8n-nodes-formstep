@@ -45,7 +45,7 @@ function respond(handler: (method: string, params: Record<string, unknown>) => u
 function respondWithForm() {
   respond((method) => {
     if (method === 'fields.list') return { published: true, items: FIELDS, hasMore: false }
-    return { id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }
+    return { id: 'req_1', status: 'pending', url: 'https://form.formstep.io/r/rq_1' }
   })
 }
 

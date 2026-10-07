@@ -228,7 +228,7 @@ describe('Formstep.methods.loadOptions', () => {
 
 describe('Formstep.execute: create', () => {
   it('creates a request from the form, recipient, prefill, context and read-only keys', async () => {
-    respond(() => ({ id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }))
+    respond(() => ({ id: 'req_1', status: 'pending', url: 'https://form.formstep.io/r/rq_1' }))
 
     const items = await run([
       {
@@ -256,7 +256,7 @@ describe('Formstep.execute: create', () => {
       language: 'de',
       delivery: 'email',
     })
-    expect(items).toEqual([{ json: { id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }, pairedItem: { item: 0 } }])
+    expect(items).toEqual([{ json: { id: 'req_1', status: 'pending', url: 'https://form.formstep.io/r/rq_1' }, pairedItem: { item: 0 } }])
   })
 
   it('sends only the form when nothing else is set', async () => {

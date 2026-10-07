@@ -240,7 +240,7 @@ export class FakeFormstep {
       status: 'pending',
       formId: form.id,
       params,
-      url: `https://forms.formstep.io/r/rq_${id}`,
+      url: `https://form.formstep.io/r/rq_${id}`,
       externalId: params.externalId === undefined ? null : String(params.externalId),
       isTest: params.test === true,
       remindersSent: 0,
