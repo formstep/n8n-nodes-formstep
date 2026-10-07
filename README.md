@@ -1,17 +1,17 @@
-# n8n-nodes-formbase
+# n8n-nodes-formstep
 
-Community nodes for [n8n](https://n8n.io) that create [formbase](https://formbase.so) requests, pause a workflow until a customer completes one, and start workflows when a request is completed, expires or is canceled, or when a form is submitted. formbase collects and verifies information from customers for workflows and AI agents: a workflow creates a request, the recipient completes a branded form without an account, and the verified answers arrive in n8n keyed by stable field keys.
+Community nodes for [n8n](https://n8n.io) that create [Formstep](https://formstep.io) requests, pause a workflow until a customer completes one, and start workflows when a request is completed, expires or is canceled, or when a form is submitted. Formstep collects and verifies information from customers for workflows and AI agents: a workflow creates a request, the recipient completes a branded form without an account, and the verified answers arrive in n8n keyed by stable field keys.
 
 ## Features
 
-- **formbase** node: create a request for a form and a recipient, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
-- Map a request's fields like any n8n mapping: pick the form, and **Fields** lists its questions with a dropdown for each choice, a number or date input where formbase expects one, and the form's context fields. **Map Automatically** sends an input item's keys that match the form's field keys.
+- **Formstep** node: create a request for a form and a recipient, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
+- Map a request's fields like any n8n mapping: pick the form, and **Fields** lists its questions with a dropdown for each choice, a number or date input where Formstep expects one, and the form's context fields. **Map Automatically** sends an input item's keys that match the form's field keys.
 - Search forms by name, and pick a request from the workspace's newest ones, or pass an ID.
 - Pause a workflow until the recipient answers: **Wait for the Outcome** points the request's callback at n8n's Wait node, so the workflow resumes with the completed, expired or canceled request as its input.
-- **formbase Trigger** node: start a workflow when a request is completed, expires or is canceled, or when a respondent submits a form through its public link. `data.request` carries the request ID and the caller's `externalId` and `metadata`, so the workflow that created the request can pick up where it left off.
+- **Formstep Trigger** node: start a workflow when a request is completed, expires or is canceled, or when a respondent submits a form through its public link. `data.request` carries the request ID and the caller's `externalId` and `metadata`, so the workflow that created the request can pick up where it left off.
 - Trigger on abandoned submissions after a selected 12-hour, 1-day, 3-day, or 1-week idle window.
 - Load forms dynamically from the workspace the credential is scoped to, across every page, with unpublished forms marked.
-- Register and remove formbase webhook subscriptions with the n8n workflow lifecycle.
+- Register and remove Formstep webhook subscriptions with the n8n workflow lifecycle.
 - Verify every webhook with HMAC-SHA256 and reject stale or forged requests.
 - Connect through workspace-scoped OAuth 2.1 with PKCE and automatic refresh-token rotation.
 
@@ -20,29 +20,33 @@ Community nodes for [n8n](https://n8n.io) that create [formbase](https://formbas
 Open **Settings → Community Nodes**, select **Install**, and enter:
 
 ```text
-n8n-nodes-formbase
+n8n-nodes-formstep
 ```
 
 Community nodes must be enabled on self-hosted n8n. Installation in n8n Cloud requires a verified community node.
 
 OAuth setup requires n8n 2.30 or newer.
 
+### Moving from n8n-nodes-formbase
+
+Formstep was called formbase, and this package replaces `n8n-nodes-formbase`. Its node, trigger and credential are new types to n8n, so a workflow built with the old package does not move over by itself: install `n8n-nodes-formstep`, create a **Formstep OAuth2 API** credential, put a **Formstep** or **Formstep Trigger** node in place of each old one, publish the workflow again, then uninstall `n8n-nodes-formbase`. Deliveries now carry `X-Formstep-*` headers instead of `X-formbase-*`. See the [changelog](CHANGELOG.md).
+
 ## Configure credentials
 
-1. In n8n, create a **Formbase OAuth2 API** credential.
+1. In n8n, create a **Formstep OAuth2 API** credential.
 2. Select **Connect my account**.
-3. Sign in to formbase, choose workspace, and approve requested API access.
+3. Sign in to Formstep, choose workspace, and approve requested API access.
 4. Select **Test**. n8n calls `me.get` to verify connection.
 
-n8n registers its exact callback URL with formbase automatically through OAuth Dynamic Client Registration. Access tokens expire after one hour and refresh automatically. Rotating refresh token remains valid while connection is used at least once every 30 days.
+n8n registers its exact callback URL with Formstep automatically through OAuth Dynamic Client Registration. Access tokens expire after one hour and refresh automatically. Rotating refresh token remains valid while connection is used at least once every 30 days.
 
-Self-hosted n8n must use configured HTTPS public URL for OAuth callback. Loopback HTTP is supported for local development; see [Run locally against formbase](#run-locally-against-formbase).
+Self-hosted n8n must use configured HTTPS public URL for OAuth callback. Loopback HTTP is supported for local development; see [Run locally against Formstep](#run-locally-against-formstep).
 
-## Use the formbase node
+## Use the Formstep node
 
-Add **formbase** to a workflow, select the **Request** resource and an operation. Every operation returns the formbase response as one item per request, with `pairedItem` set, and honours **Continue on Fail**.
+Add **Formstep** to a workflow, select the **Request** resource and an operation. Every operation returns the Formstep response as one item per request, with `pairedItem` set, and honours **Continue on Fail**.
 
-| Operation           | formbase method           | What it does                                                                                                                                                                                                 |
+| Operation           | Formstep method           | What it does                                                                                                                                                                                                 |
 | ------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Create**          | `requests.create`         | Creates a request for a published form. Returns the request summary, including the request link in `url`.                                                                                                     |
 | **Get**             | `requests.get`            | Reads one request: status, outcome, recipient, `answers` and `display` once it is completed.                                                                                                                 |
@@ -54,8 +58,8 @@ Add **formbase** to a workflow, select the **Request** resource and an operation
 ### Create a request
 
 1. Pick the **Form**: search the credential's workspace by name, or paste its ID. Forms that are not published yet read "(not published)"; a request needs a published form.
-2. Enter the **Recipient Email** when formbase should email the link or send reminders; leave it empty for a request you hand out yourself.
-3. Under **Fields**, fill in the answers the recipient should find prefilled, and the form's context fields (marked `· context`): values stored with the request and returned with the answers that the recipient never sees. Each field shows its question and field key, and takes the shape formbase expects:
+2. Enter the **Recipient Email** when Formstep should email the link or send reminders; leave it empty for a request you hand out yourself.
+3. Under **Fields**, fill in the answers the recipient should find prefilled, and the form's context fields (marked `· context`): values stored with the request and returned with the answers that the recipient never sees. Each field shows its question and field key, and takes the shape Formstep expects:
 
    | Field                                | Input                                                        |
    | ------------------------------------ | ------------------------------------------------------------ |
@@ -71,7 +75,7 @@ Add **formbase** to a workflow, select the **Request** resource and an operation
    Leave a field empty to leave it unanswered. With **Map Automatically**, the node sends every key of the input item that is a field key of the form and ignores the rest, so an item like `{ "company_name": "Acme", "case_id": "CASE-9" }` needs no mapping at all. Fields a caller can never fill in, such as file uploads, signatures, payments, bookings and calculated fields, are not listed.
 4. Under **Read-Only Fields**, pick the prefilled fields the recipient may see but not change.
 5. Under **Documents**, add the files the recipient should read or download, such as a contract or a price list. Each entry names an **Input Binary Field** of the incoming item (a file from an HTTP Request, Google Drive or Read Binary File node), an optional **Name** the recipient sees, and the **Documents Block** it goes into. The form needs a Documents block; leave the block empty when the form has one, and pick it when the form has several. Files are PDFs or images of up to 25 MB. The node uploads each file before it creates the request, and the recipient sees them below the documents the form already has.
-6. In **Additional Fields**, set **Delivery** to `Email` to have formbase send the link, **Reminders** such as `2d, 5d` (leave the field empty to send none; remove it to inherit the form's schedule), **Expires At**, **Language**, **Recipient Name**, **Metadata** (a JSON object handed back with every event), **Test Mode**, or a **Callback URL** of your own.
+6. In **Additional Fields**, set **Delivery** to `Email` to have Formstep send the link, **Reminders** such as `2d, 5d` (leave the field empty to send none; remove it to inherit the form's schedule), **Expires At**, **Language**, **Recipient Name**, **Metadata** (a JSON object handed back with every event), **Test Mode**, or a **Callback URL** of your own.
 7. Set **External ID** to your own identifier, for example `{{ $execution.id }}`. The node also sends it as the request's `idempotencyKey`, so a retried execution gets the same request back (`deduplicated: true`) instead of creating a second one.
 
 Every request also carries `formId`, `status`, `url`, `externalId`, `isTest`, `deliveryStatus`, `hasCallback`, `remindersSent`, `expiresAt` and `createdAt` in its summary.
@@ -80,7 +84,7 @@ Every request also carries `formId`, `status`, `url`, `externalId`, `isTest`, `d
 
 #### Node versions
 
-New nodes are version 2. A workflow saved with version 1 keeps it and keeps working unchanged: its Form is a plain dropdown, its Request ID a text box, and it lists **Prefill** and **Context** values as key/value rows, with **Parse as JSON** for a value that is not text. To move such a node to the Fields mapper, add a new formbase node and copy the values over.
+New nodes are version 2. A workflow saved with version 1 keeps it and keeps working unchanged: its Form is a plain dropdown, its Request ID a text box, and it lists **Prefill** and **Context** values as key/value rows, with **Parse as JSON** for a value that is not text. To move such a node to the Fields mapper, add a new Formstep node and copy the values over.
 
 ### Wait for the outcome
 
@@ -88,38 +92,38 @@ A request is answered minutes or days later. To pause the workflow until then:
 
 1. On the **Create** operation, turn on **Wait for the Outcome**. The node sets the request's callback URL to `{{ $execution.resumeUrl }}`, the URL n8n's Wait node listens on for this execution. Do not set **Callback URL** at the same time; the node refuses the combination.
 2. Add a **Wait** node right after it, with **Resume** set to **On Webhook Call** and the HTTP method left at `POST`. The execution pauses here.
-3. When the request is completed, expires or is canceled, formbase posts the event envelope to that URL and the execution resumes. The Wait node emits the delivery as one item with the envelope under `$json.body`.
+3. When the request is completed, expires or is canceled, Formstep posts the event envelope to that URL and the execution resumes. The Wait node emits the delivery as one item with the envelope under `$json.body`.
 4. Branch on `{{ $json.body.type }}` (`request.completed`, `request.expired` or `request.canceled`) and read the answers from `{{ $json.body.data.answers.<field_key> }}`, the outcome from `{{ $json.body.data.request.outcome }}`, and the request ID from `{{ $json.body.data.request.id }}`.
 
-[`examples/formbase-request-wait.json`](examples/formbase-request-wait.json) shows the whole pattern: formbase **Create** with **Wait for the Outcome** → **Wait** → **Switch** on the event type → **Set** reading the answers.
+[`examples/formstep-request-wait.json`](examples/formstep-request-wait.json) shows the whole pattern: Formstep **Create** with **Wait for the Outcome** → **Wait** → **Switch** on the event type → **Set** reading the answers.
 
 A resume URL only exists once the execution runs, so the test run of a Create node in the editor waits for a real answer just like a production run. A request expires after 30 days unless you set **Expires At**, and expiry resumes the workflow with `request.expired`; set **Expires At** to end the wait sooner. If n8n was unreachable when the callback fired, run **Replay Callback** for the request, or read it with **Get**: the resume URL of a finished execution is gone, so a replay only helps while the execution is still waiting.
 
-The Wait node cannot check the `X-formbase-Signature` header that the callback carries. The resume URL is unguessable, which is what n8n relies on for every Wait node; if that is not enough for a workflow, use the trigger node instead, which verifies every delivery.
+The Wait node cannot check the `X-Formstep-Signature` header that the callback carries. The resume URL is unguessable, which is what n8n relies on for every Wait node; if that is not enough for a workflow, use the trigger node instead, which verifies every delivery.
 
 ### Errors
 
-A failed call stops the node with the formbase error code and message as its title, for example `CONFLICT: Idempotency key "run-42" was already used for a different request. Use a new key, or resend the original body.` or `VALIDATION_ERROR: This form has 2 Documents blocks; name the target with "field".` The error description names the specific cause when formbase gives one: the reason code, the parameter it concerns, and the keys that would have worked. With **Continue on Fail** on, the same text arrives in the item's `error` field, so a workflow can branch on the code.
+A failed call stops the node with the Formstep error code and message as its title, for example `CONFLICT: Idempotency key "run-42" was already used for a different request. Use a new key, or resend the original body.` or `VALIDATION_ERROR: This form has 2 Documents blocks; name the target with "field".` The error description names the specific cause when Formstep gives one: the reason code, the parameter it concerns, and the keys that would have worked. With **Continue on Fail** on, the same text arrives in the item's `error` field, so a workflow can branch on the code.
 
 Things worth knowing:
 
-- **Remind** always emails the recipient, including a request created with **Delivery** set to `None`, so it needs a request with a recipient email. formbase refuses a reminder sent less than 10 minutes after the previous one, and sends at most eight per request.
+- **Remind** always emails the recipient, including a request created with **Delivery** set to `None`, so it needs a request with a recipient email. Formstep refuses a reminder sent less than 10 minutes after the previous one, and sends at most eight per request.
 - **Get** and **Get Many** return timestamps (`createdAt`, `expiresAt`, `completedAt`) as Unix time in milliseconds; webhook and callback events use ISO 8601 strings.
 - `outcome` is only set when the form has a decision question with the field key `decision`.
 - A retried **Create** with the same **External ID** and the same parameters returns the first request with `deduplicated: true`. With different parameters it fails with `CONFLICT`.
 
 ## Use the trigger
 
-1. Add **formbase Trigger** to a workflow.
+1. Add **Formstep Trigger** to a workflow.
 2. Select form and event: a request that is completed, expires or is canceled, or a public-link submission that is created, updated or abandoned. For an abandoned-submission event, select how long the response must remain unchanged.
 3. For a test execution, click **Execute step** and submit the selected form within two minutes; that is how long n8n listens. Expired, canceled and abandoned events arrive later, so test those on the published workflow.
-4. Publish the workflow. n8n registers its production webhook with formbase and removes it when the workflow is unpublished or deleted.
+4. Publish the workflow. n8n registers its production webhook with Formstep and removes it when the workflow is unpublished or deleted.
 
-n8n webhook URL must be publicly reachable over HTTPS. For reverse-proxy or tunnel deployments, configure n8n's `WEBHOOK_URL` so generated webhook URLs use public origin. For a local n8n, see [Run locally against formbase](#run-locally-against-formbase).
+n8n webhook URL must be publicly reachable over HTTPS. For reverse-proxy or tunnel deployments, configure n8n's `WEBHOOK_URL` so generated webhook URLs use public origin. For a local n8n, see [Run locally against Formstep](#run-locally-against-formstep).
 
-n8n generates a separate 256-bit signing secret for each registration. Incoming requests must contain a valid `X-formbase-Signature` header with a timestamp no more than five minutes old. Missing, stale, or invalid signatures receive `401 Unauthorized` and do not start the workflow.
+n8n generates a separate 256-bit signing secret for each registration. Incoming requests must contain a valid `X-Formstep-Signature` header with a timestamp no more than five minutes old. Missing, stale, or invalid signatures receive `401 Unauthorized` and do not start the workflow.
 
-Abandoned-submission timing is enforced by formbase, not n8n. formbase checks incomplete responses hourly and calls the registered n8n webhook after the selected idle window, so delivery can occur up to about one hour after the threshold.
+Abandoned-submission timing is enforced by Formstep, not n8n. Formstep checks incomplete responses hourly and calls the registered n8n webhook after the selected idle window, so delivery can occur up to about one hour after the threshold.
 
 One channel, one event: **Public Link Submission Created** runs for public-link submissions only, and a completed request runs **Request Completed** alone, never Public Link Submission Created. A workflow that wants every answer, whichever channel produced it, uses one trigger node on each event.
 
@@ -127,12 +131,12 @@ One channel, one event: **Public Link Submission Created** runs for public-link 
 
 ## Example workflows
 
-- [`examples/formbase-request-wait.json`](examples/formbase-request-wait.json): a formbase **Create** node with **Wait for the Outcome**, a **Wait** node, a **Switch** on `request.completed` / `request.expired` / `request.canceled`, and a **Set** node that reads the request ID, outcome and an answer. Connect the credential, pick a form with a `company_name` field (or change the Fields mapping and the Set node), and run it.
-- [`examples/formbase-submission.json`](examples/formbase-submission.json): a **formbase Trigger** that maps event ID, event type, submission ID, respondent email, and form name into stable output fields. Connect the credential, select a form, then publish the workflow.
+- [`examples/formstep-request-wait.json`](examples/formstep-request-wait.json): a Formstep **Create** node with **Wait for the Outcome**, a **Wait** node, a **Switch** on `request.completed` / `request.expired` / `request.canceled`, and a **Set** node that reads the request ID, outcome and an answer. Connect the credential, pick a form with a `company_name` field (or change the Fields mapping and the Set node), and run it.
+- [`examples/formstep-submission.json`](examples/formstep-submission.json): a **Formstep Trigger** that maps event ID, event type, submission ID, respondent email, and form name into stable output fields. Connect the credential, select a form, then publish the workflow.
 
 ## Output
 
-Each webhook produces one n8n item containing the formbase event envelope. Every answer appears once in `data.answers`, keyed by field key; `data.display` carries the human-readable text under the same keys:
+Each webhook produces one n8n item containing the Formstep event envelope. Every answer appears once in `data.answers`, keyed by field key; `data.display` carries the human-readable text under the same keys:
 
 ```json
 {
@@ -195,11 +199,11 @@ A **Schedule appointment** answer and a **Payment** answer are objects, and `dis
 
 - A booking is `{ status, start, end, timeZone, attendee: { name, email }, meetingUrl, provider, providerBookingId, eventTitle }`. `status` is `confirmed`, `rescheduled`, `cancelled`, `rejected` or `no_show`. `start` and `end` are ISO 8601 instants. `meetingUrl` and `eventTitle` may be `null`.
 - A payment is `{ status, amount, currency, amountRefunded, receiptUrl, paidAt, refundedAt, disputedAt, provider, providerPaymentIntentId }`. `status` is `paid`, `partially_refunded`, `refunded` or `disputed`. `amount` and `amountRefunded` are in the currency's major unit (`40` is $40.00), `currency` is upper-case ISO 4217, and the timestamps are ISO 8601 or `null`.
-- formbase keeps both current: a rescheduled booking, a refund or a dispute rewrites the stored answer, so later events carry the new state. The change itself sends no event.
+- Formstep keeps both current: a rescheduled booking, a refund or a dispute rewrites the stored answer, so later events carry the new state. The change itself sends no event.
 
 Before event `apiVersion` `2026-09-24`, a booking arrived as one sentence and a payment question had no answer. A workflow that read the booking as text reads `data.display.<field_key>` instead.
 
-The node passes the envelope through unchanged — it does not flatten answers into the top level of the item. Nothing is dropped, every key stays where the formbase contract puts it, and a field key can never collide with an envelope key such as `type` or `test`. Map the handful of values a workflow needs with a Set node, as the example workflow does.
+The node passes the envelope through unchanged — it does not flatten answers into the top level of the item. Nothing is dropped, every key stays where the Formstep contract puts it, and a field key can never collide with an envelope key such as `type` or `test`. Map the handful of values a workflow needs with a Set node, as the example workflow does.
 
 A submission event carries no channel field; the event `type` already says it came through the public link. `submission.updated` keeps the original `submittedAt`, and the envelope's `createdAt` is the time of the edit. `data.submission.updatedAt` is when the submission was last edited (`null` until the first edit), and `data.submission.editCount` counts the edits (`0` on a fresh submission).
 
@@ -251,9 +255,9 @@ Webhook registration events select which deliveries trigger the workflow, and ea
 - `submission_abandoned` (**Public Link Submission Abandoned**) delivers `submission.abandoned`, after the selected idle window.
 - `request_completed`, `request_expired` and `request_canceled` deliver `request.completed`, `request.expired` and `request.canceled`.
 
-Use `id` to deduplicate retries; the same values arrive as `X-formbase-Event-Id` and `X-formbase-Event-Type` headers.
+Use `id` to deduplicate retries; the same values arrive as `X-Formstep-Event-Id` and `X-Formstep-Event-Type` headers.
 
-Full contracts: [formbase API methods](https://docs.formbase.so/developers/rest-api) and [webhook reference](https://docs.formbase.so/developers/webhooks-reference).
+Full contracts: [Formstep API methods](https://docs.formstep.io/developers/rest-api) and [webhook reference](https://docs.formstep.io/developers/webhooks-reference).
 
 ## Develop
 
@@ -264,17 +268,17 @@ npm run build
 npm run lint
 ```
 
-The formbase node lives in `nodes/Formbase/`: `Formbase.node.ts` wires the node together, `actions/` holds its parameters (`RequestDescription.ts`), what each operation calls (`RequestOperations.ts`) and how Create builds its body (`RequestCreate.ts`), `FormFields.ts` maps `fields.list` onto the Fields mapper, and `FormbaseMethods.ts` holds the pickers both nodes share.
+The Formstep node lives in `nodes/Formstep/`: `Formstep.node.ts` wires the node together, `actions/` holds its parameters (`RequestDescription.ts`), what each operation calls (`RequestOperations.ts`) and how Create builds its body (`RequestCreate.ts`), `FormFields.ts` maps `fields.list` onto the Fields mapper, and `FormstepMethods.ts` holds the pickers both nodes share.
 
-`npm test` runs unit tests plus lifecycle tests that drive both nodes against an in-process formbase API over real HTTP (`test/fakeFormbase.mts`). `npm run dev` starts n8n with the node loaded and rebuilds on changes. Compiled package files are written to `dist/`. Run `npm pack --dry-run` before publishing to inspect package contents.
+`npm test` runs unit tests plus lifecycle tests that drive both nodes against an in-process Formstep API over real HTTP (`test/fakeFormstep.mts`). `npm run dev` starts n8n with the node loaded and rebuilds on changes. Compiled package files are written to `dist/`. Run `npm pack --dry-run` before publishing to inspect package contents.
 
-### Run locally against formbase
+### Run locally against Formstep
 
-The credential's server URL is a hidden field fixed to `https://api.formbase.so/api/v1` (`FORMBASE_API_RESOURCE_URL` in `nodes/Formbase/constants.ts`). A local build therefore always talks to production formbase: requests, webhook subscriptions and test submissions it creates are real data in the workspace you connect. Use a workspace meant for testing.
+The credential's server URL is a hidden field fixed to `https://api.formstep.io/api/v1` (`FORMSTEP_API_RESOURCE_URL` in `nodes/Formstep/constants.ts`). A local build therefore always talks to production Formstep: requests, webhook subscriptions and test submissions it creates are real data in the workspace you connect. Use a workspace meant for testing.
 
-`npm run dev` starts n8n on `http://localhost:5678`. That is enough to connect the credential, but formbase cannot reach `localhost`, so a published **formbase Trigger** never runs and a **Wait for the Outcome** callback never arrives. Two n8n settings fix this:
+`npm run dev` starts n8n on `http://localhost:5678`. That is enough to connect the credential, but Formstep cannot reach `localhost`, so a published **Formstep Trigger** never runs and a **Wait for the Outcome** callback never arrives. Two n8n settings fix this:
 
-- `WEBHOOK_URL`: the public address n8n puts into the webhook and resume URLs it generates. The trigger sends its webhook URL to formbase when the workflow is published (`webhooks.create`), and **Wait for the Outcome** sends `{{ $execution.resumeUrl }}` as the request's callback. Point it at a tunnel to `localhost:5678`, with a trailing `/`.
+- `WEBHOOK_URL`: the public address n8n puts into the webhook and resume URLs it generates. The trigger sends its webhook URL to Formstep when the workflow is published (`webhooks.create`), and **Wait for the Outcome** sends `{{ $execution.resumeUrl }}` as the request's callback. Point it at a tunnel to `localhost:5678`, with a trailing `/`.
 - `N8N_EDITOR_BASE_URL`: the address n8n builds a trigger's test URL for **Execute step** from, and the OAuth callback URL. Set it to the same tunnel address. Left at `http://localhost:5678/`, **Execute step** on a trigger fails with `VALIDATION_ERROR: targetUrl must use https`.
 - `N8N_PROXY_HOPS=1`, so n8n reads the tunnel's forwarded headers.
 
@@ -290,7 +294,7 @@ npm run dev
 
 Open n8n through the tunnel address, not `localhost`, from then on: the OAuth callback lands on the tunnel, and it needs the n8n login cookie of that address.
 
-A quick tunnel gets a new address every time `cloudflared` restarts. After a restart, update `WEBHOOK_URL`, restart n8n, and unpublish and publish each workflow again so the trigger registers its new webhook URL with formbase.
+A quick tunnel gets a new address every time `cloudflared` restarts. After a restart, update `WEBHOOK_URL`, restart n8n, and unpublish and publish each workflow again so the trigger registers its new webhook URL with Formstep.
 
 ## Release
 
