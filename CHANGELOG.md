@@ -4,7 +4,7 @@ All notable changes to this project will be documented here.
 
 ## 0.11.0 - 2026-10-08
 
-formbase is now Formstep, and this package is `n8n-nodes-formstep`. It is a new package on npm, not a new version of `n8n-nodes-formbase`, which will be deprecated on npm in favor of this one. Earlier entries below describe releases of `n8n-nodes-formbase` under the new name.
+formbase is now Formstep, and this package is `n8n-nodes-formstep`. It is a new package on npm, not a new version of `n8n-nodes-formbase`, which is removed from npm. Earlier entries below describe releases of `n8n-nodes-formbase` under the new name.
 
 - **Breaking:** the node, the trigger and the credential have new types: `n8n-nodes-formstep.formstep`, `n8n-nodes-formstep.formstepTrigger` and `formstepOAuth2Api`, in place of `n8n-nodes-formbase.formbase`, `n8n-nodes-formbase.formbaseTrigger` and `formbaseOAuth2Api`. n8n does not carry a workflow over to a new type, so an existing workflow needs the nodes added again: install `n8n-nodes-formstep`, create a **Formstep OAuth2 API** credential, put a **Formstep** or **Formstep Trigger** node in place of each old one, and publish the workflow again. The trigger registers its webhook under the path `formstep` instead of `formbase`.
 - **Breaking:** Formstep signs and labels deliveries with `X-Formstep-Signature`, `X-Formstep-Event-Id` and `X-Formstep-Event-Type` instead of `X-formbase-Signature`, `X-formbase-Event-Id` and `X-formbase-Event-Type`, and no longer sends the old names. The trigger verifies `X-Formstep-Signature`. A workflow that reads the event ID or type from the headers, such as one behind a Wait node, reads the new names.
