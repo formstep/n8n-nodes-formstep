@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## Unreleased
+## 0.11.0 - 2026-10-08
 
 formbase is now Formstep, and this package is `n8n-nodes-formstep`. It is a new package on npm, not a new version of `n8n-nodes-formbase`, which will be deprecated on npm in favor of this one. Earlier entries below describe releases of `n8n-nodes-formbase` under the new name.
 
