@@ -3,20 +3,20 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { NodeApiError, NodeOperationError } from 'n8n-workflow'
 
-vi.mock('../nodes/Formbase/GenericFunctions', () => ({
-  formbaseApiRequest: vi.fn(),
+vi.mock('../nodes/Formstep/GenericFunctions', () => ({
+  formstepApiRequest: vi.fn(),
 }))
 
-import { formbaseApiRequest } from '../nodes/Formbase/GenericFunctions'
-import { Formbase } from '../nodes/Formbase/Formbase.node'
+import { formstepApiRequest } from '../nodes/Formstep/GenericFunctions'
+import { Formstep } from '../nodes/Formstep/Formstep.node'
 
-const mockedRequest = formbaseApiRequest as unknown as ReturnType<typeof vi.fn>
+const mockedRequest = formstepApiRequest as unknown as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   mockedRequest.mockReset()
 })
 
-const NODE = { name: 'formbase', type: 'formbase', typeVersion: 1 }
+const NODE = { name: 'Formstep', type: 'formstep', typeVersion: 1 }
 const RESUME_URL = 'https://n8n.example/webhook-waiting/123'
 
 function respond(handler: (method: string, params: Record<string, unknown>) => unknown) {
@@ -85,33 +85,33 @@ function makeLoadOptionsContext(currentParameters: Record<string, unknown> = {})
 
 async function run(parameters: Array<Record<string, unknown>>, options?: ExecuteOptions) {
   const ctx = makeExecuteContext(parameters, options)
-  const [items] = await new Formbase().execute.call(ctx as never)
+  const [items] = await new Formstep().execute.call(ctx as never)
   return items
 }
 
 async function runWithContext(parameters: Array<Record<string, unknown>>, options?: ExecuteOptions) {
   const ctx = makeExecuteContext(parameters, options)
-  const [items] = await new Formbase().execute.call(ctx as never)
+  const [items] = await new Formstep().execute.call(ctx as never)
   return { items, ctx }
 }
 
 const CREATE = { resource: 'request', operation: 'create', formId: 'form_1' }
 
-describe('formbase node description', () => {
-  it('uses lowercase formbase branding and is usable as an AI tool', () => {
-    const node = new Formbase()
+describe('Formstep node description', () => {
+  it('uses Formstep branding with a capital F and is usable as an AI tool', () => {
+    const node = new Formstep()
 
-    expect(node.description.displayName).toBe('formbase')
-    expect(node.description.name).toBe('formbase')
-    expect(node.description.description).toContain('formbase')
-    expect(node.description.description).not.toContain('Formbase')
+    expect(node.description.displayName).toBe('Formstep')
+    expect(node.description.name).toBe('formstep')
+    expect(node.description.description).toContain('Formstep')
+    expect(node.description.description).not.toContain('formstep')
     expect(node.description.usableAsTool).toBe(true)
-    expect(node.description.icon).toEqual({ light: 'file:formbase-logo.svg', dark: 'file:formbase-logo.dark.svg' })
-    expect(node.description.credentials).toEqual([{ name: 'formbaseOAuth2Api', required: true }])
+    expect(node.description.icon).toEqual({ light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' })
+    expect(node.description.credentials).toEqual([{ name: 'formstepOAuth2Api', required: true }])
   })
 
   it('offers the Request resource with its six operations', () => {
-    const node = new Formbase()
+    const node = new Formstep()
     const resource = node.description.properties.find((property) => property.name === 'resource')
     const operation = node.description.properties.find((property) => property.name === 'operation')
 
@@ -128,7 +128,7 @@ describe('formbase node description', () => {
   })
 
   it('loads prefill and context keys per selected form', () => {
-    const node = new Formbase()
+    const node = new Formstep()
     const prefill = node.description.properties.find((property) => property.name === 'prefill')
     const context = node.description.properties.find((property) => property.name === 'context')
     const readonly = node.description.properties.find((property) => property.name === 'readonly')
@@ -143,17 +143,17 @@ describe('formbase node description', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string; n8n: { nodes: string[] } }
 
     expect(pkg.version).toBe('0.10.2')
-    expect(pkg.n8n.nodes).toEqual(['dist/nodes/Formbase/Formbase.node.js', 'dist/nodes/Formbase/FormbaseTrigger.node.js'])
+    expect(pkg.n8n.nodes).toEqual(['dist/nodes/Formstep/Formstep.node.js', 'dist/nodes/Formstep/FormstepTrigger.node.js'])
   })
 
   it('ships codex metadata like the trigger', () => {
-    const codex = JSON.parse(readFileSync(new URL('../nodes/Formbase/Formbase.node.json', import.meta.url), 'utf8')) as Record<string, unknown>
+    const codex = JSON.parse(readFileSync(new URL('../nodes/Formstep/Formstep.node.json', import.meta.url), 'utf8')) as Record<string, unknown>
 
-    expect(codex).toMatchObject({ node: 'n8n-nodes-formbase', nodeVersion: '1.0', codexVersion: '1.0' })
+    expect(codex).toMatchObject({ node: 'n8n-nodes-formstep', nodeVersion: '1.0', codexVersion: '1.0' })
   })
 
   it('ships an importable example workflow that creates a request, waits, and reads the outcome', () => {
-    const workflow = JSON.parse(readFileSync(new URL('../examples/formbase-request-wait.json', import.meta.url), 'utf8')) as {
+    const workflow = JSON.parse(readFileSync(new URL('../examples/formstep-request-wait.json', import.meta.url), 'utf8')) as {
       nodes: Array<{ name: string; type: string; parameters: Record<string, unknown> }>
       connections: Record<string, { main: Array<Array<{ node: string }>> }>
       active: boolean
@@ -161,16 +161,16 @@ describe('formbase node description', () => {
 
     expect(workflow.active).toBe(false)
     const types = workflow.nodes.map((node) => node.type)
-    expect(types).toContain('n8n-nodes-formbase.formbase')
+    expect(types).toContain('n8n-nodes-formstep.formstep')
     expect(types).toContain('n8n-nodes-base.wait')
-    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formbase.formbase')
+    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
     const wait = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.wait')
     expect(create?.parameters).toMatchObject({ operation: 'create', waitForOutcome: true })
     expect(wait?.parameters).toMatchObject({ resume: 'webhook' })
     expect(workflow.connections[create!.name]?.main[0]?.[0]?.node).toBe(wait!.name)
   })
 })
-describe('Formbase.methods.loadOptions', () => {
+describe('Formstep.methods.loadOptions', () => {
   const fields = [
     { key: 'company_name', type: 'text', title: 'Company', prefillable: true },
     { key: 'case_id', type: 'hidden', title: 'Case', prefillable: false, context: true },
@@ -181,7 +181,7 @@ describe('Formbase.methods.loadOptions', () => {
 
   it('offers prefillable fields for prefill and read-only, and context fields for context', async () => {
     respond(() => ({ published: true, items: fields, hasMore: false }))
-    const node = new Formbase()
+    const node = new Formstep()
     const ctx = makeLoadOptionsContext({ formId: 'form_1' })
 
     expect(await node.methods.loadOptions.getPrefillKeys.call(ctx as never)).toEqual([
@@ -200,13 +200,13 @@ describe('Formbase.methods.loadOptions', () => {
     }))
     const ctx = makeLoadOptionsContext({ formId: 'form_1' })
 
-    expect(await new Formbase().methods.loadOptions.getDocumentsKeys.call(ctx as never)).toEqual([
+    expect(await new Formstep().methods.loadOptions.getDocumentsKeys.call(ctx as never)).toEqual([
       { name: 'Your contract (contract_documents)', value: 'contract_documents' },
     ])
   })
 
   it('offers nothing until a form is selected', async () => {
-    const node = new Formbase()
+    const node = new Formstep()
 
     expect(await node.methods.loadOptions.getPrefillKeys.call(makeLoadOptionsContext() as never)).toEqual([])
     expect(await node.methods.loadOptions.getContextKeys.call(makeLoadOptionsContext() as never)).toEqual([])
@@ -220,15 +220,15 @@ describe('Formbase.methods.loadOptions', () => {
         : { items: [{ id: 'f1', name: 'Vendor onboarding', isPublished: true }], hasMore: false, nextCursor: null }
     )
 
-    expect(await new Formbase().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)).toEqual([
+    expect(await new Formstep().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)).toEqual([
       { name: 'Vendor onboarding', value: 'f1' },
     ])
   })
 })
 
-describe('Formbase.execute: create', () => {
+describe('Formstep.execute: create', () => {
   it('creates a request from the form, recipient, prefill, context and read-only keys', async () => {
-    respond(() => ({ id: 'req_1', status: 'pending', url: 'https://forms.formbase.so/r/rq_1' }))
+    respond(() => ({ id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }))
 
     const items = await run([
       {
@@ -256,7 +256,7 @@ describe('Formbase.execute: create', () => {
       language: 'de',
       delivery: 'email',
     })
-    expect(items).toEqual([{ json: { id: 'req_1', status: 'pending', url: 'https://forms.formbase.so/r/rq_1' }, pairedItem: { item: 0 } }])
+    expect(items).toEqual([{ json: { id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }, pairedItem: { item: 0 } }])
   })
 
   it('sends only the form when nothing else is set', async () => {
@@ -279,7 +279,7 @@ describe('Formbase.execute: create', () => {
     respond(() => ({ id: 'req_1' }))
     const ctx = makeExecuteContext([{ ...CREATE, waitForOutcome: true }], { resumeUrl: RESUME_URL })
 
-    await new Formbase().execute.call(ctx as never)
+    await new Formstep().execute.call(ctx as never)
 
     expect(ctx.evaluateExpression).toHaveBeenCalledWith('{{ $execution.resumeUrl }}', 0)
     expect(sentParams('requests.create')).toMatchObject({ callbackUrl: RESUME_URL })
@@ -417,13 +417,13 @@ describe('Formbase.execute: create', () => {
     ['a prefill value flagged as JSON that is not JSON', { prefill: { values: [{ key: 'contacts', value: '[', json: true }] } }],
     ['a prefill entry without a key', { prefill: { values: [{ key: '', value: 'x' }] } }],
     ['a field key listed twice', { prefill: { values: [{ key: 'a', value: '1' }, { key: 'a', value: '2' }] } }],
-  ])('rejects %s before calling formbase', async (_name, parameters) => {
+  ])('rejects %s before calling Formstep', async (_name, parameters) => {
     await expect(run([{ ...CREATE, ...parameters }])).rejects.toBeInstanceOf(NodeOperationError)
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 })
 
-describe('Formbase.execute: get, cancel, remind, replay callback', () => {
+describe('Formstep.execute: get, cancel, remind, replay callback', () => {
   it('reads a request', async () => {
     respond(() => ({ id: 'req_1', status: 'completed', answers: { plan: 'pro' } }))
 
@@ -463,7 +463,7 @@ describe('Formbase.execute: get, cancel, remind, replay callback', () => {
   })
 })
 
-describe('Formbase.execute: get many', () => {
+describe('Formstep.execute: get many', () => {
   const GET_ALL = { resource: 'request', operation: 'getAll', scope: 'form', formId: 'form_1' }
 
   it('follows the cursor until the limit is reached and emits one item per request', async () => {
@@ -502,7 +502,7 @@ describe('Formbase.execute: get many', () => {
   })
 })
 
-describe('Formbase.execute: errors', () => {
+describe('Formstep.execute: errors', () => {
   it('rethrows an n8n error unchanged when it comes from another copy of n8n-workflow', async () => {
     // n8n's own helpers throw errors built by its own n8n-workflow, which
     // `instanceof` against the copy this package ships does not recognize.

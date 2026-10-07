@@ -1,11 +1,11 @@
 {
-  "name": "n8n-nodes-formbase",
+  "name": "n8n-nodes-formstep",
   "version": "0.10.2",
-  "description": "n8n community nodes for formbase — create requests, pause a workflow until a customer completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect and verify customer information for workflows and AI agents.",
+  "description": "n8n community nodes for Formstep — create requests, pause a workflow until a customer completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect and verify customer information for workflows and AI agents.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
-    "formbase",
+    "formstep",
     "forms",
     "requests",
     "customer-in-the-loop",
@@ -13,17 +13,17 @@
     "webhook"
   ],
   "license": "MIT",
-  "homepage": "https://formbase.so",
+  "homepage": "https://formstep.io",
   "author": {
-    "name": "formbase",
+    "name": "Formstep",
     "email": "support@formbase.so"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/formbaseso/n8n-nodes-formbase.git"
+    "url": "git+https://github.com/formstep/n8n-nodes-formstep.git"
   },
   "bugs": {
-    "url": "https://github.com/formbaseso/n8n-nodes-formbase/issues"
+    "url": "https://github.com/formstep/n8n-nodes-formstep/issues"
   },
   "scripts": {
     "build": "n8n-node build",
@@ -45,11 +45,11 @@
     "n8nNodesApiVersion": 1,
     "strict": true,
     "credentials": [
-      "dist/credentials/FormbaseOAuth2Api.credentials.js"
+      "dist/credentials/FormstepOAuth2Api.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/Formbase/Formbase.node.js",
-      "dist/nodes/Formbase/FormbaseTrigger.node.js"
+      "dist/nodes/Formstep/Formstep.node.js",
+      "dist/nodes/Formstep/FormstepTrigger.node.js"
     ]
   },
   "devDependencies": {

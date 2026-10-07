@@ -1,21 +1,20 @@
 import type { Icon, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow'
 
-import { FORMBASE_API_RESOURCE_URL, FORMBASE_CREDENTIAL_TYPE } from '../nodes/Formbase/constants'
+import { FORMSTEP_API_RESOURCE_URL, FORMSTEP_CREDENTIAL_TYPE } from '../nodes/Formstep/constants'
 
-export class FormbaseOAuth2Api implements ICredentialType {
-  name = FORMBASE_CREDENTIAL_TYPE
+export class FormstepOAuth2Api implements ICredentialType {
+  name = FORMSTEP_CREDENTIAL_TYPE
 
   extends = ['oAuth2Api']
 
-  // n8n's verification scanner ignores eslint-disable comments, so the brand takes title case here.
-  displayName = 'Formbase OAuth2 API'
+  displayName = 'Formstep OAuth2 API'
 
   icon: Icon = {
-    light: 'file:../nodes/Formbase/formbase-logo.svg',
-    dark: 'file:../nodes/Formbase/formbase-logo.dark.svg',
+    light: 'file:../nodes/Formstep/formstep-logo.svg',
+    dark: 'file:../nodes/Formstep/formstep-logo.dark.svg',
   }
 
-  documentationUrl = 'https://docs.formbase.so/guides/n8n/connect/'
+  documentationUrl = 'https://docs.formstep.io/guides/n8n/connect/'
 
   properties: INodeProperties[] = [
     {
@@ -28,7 +27,7 @@ export class FormbaseOAuth2Api implements ICredentialType {
       displayName: 'Server URL',
       name: 'serverUrl',
       type: 'hidden',
-      default: FORMBASE_API_RESOURCE_URL,
+      default: FORMSTEP_API_RESOURCE_URL,
       required: true,
     },
   ]

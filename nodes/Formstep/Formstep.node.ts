@@ -4,9 +4,9 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 import { requestProperties } from './actions/RequestDescription'
 import type { FieldLookup } from './actions/RequestCreate'
 import { isRequestOperation, REQUEST_OPERATIONS } from './actions/RequestOperations'
-import { FORMBASE_CREDENTIAL_TYPE } from './constants'
-import { listFields, type FormField } from './FormbaseCatalog'
-import { listSearch, loadOptions, resourceMapping } from './FormbaseMethods'
+import { FORMSTEP_CREDENTIAL_TYPE } from './constants'
+import { listFields, type FormField } from './FormstepCatalog'
+import { listSearch, loadOptions, resourceMapping } from './FormstepMethods'
 import { isNodeError } from './NodeErrors'
 
 /** `fields.list` for each form an execution creates requests for, called once per form however many items there are. */
@@ -21,25 +21,25 @@ function createFieldLookup(context: IExecuteFunctions): FieldLookup {
   }
 }
 
-export class Formbase implements INodeType {
+export class Formstep implements INodeType {
   description: INodeTypeDescription = {
-    displayName: 'formbase',
-    name: 'formbase',
-    icon: { light: 'file:formbase-logo.svg', dark: 'file:formbase-logo.dark.svg' },
+    displayName: 'Formstep',
+    name: 'formstep',
+    icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['transform'],
     version: [1, 2],
     defaultVersion: 2,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
-    description: 'Create, read, cancel and remind formbase requests, and pause a workflow until a customer completes one',
+    description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until a customer completes one',
     defaults: {
-      name: 'formbase',
+      name: 'Formstep',
     },
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
     usableAsTool: true,
     credentials: [
       {
-        name: FORMBASE_CREDENTIAL_TYPE,
+        name: FORMSTEP_CREDENTIAL_TYPE,
         required: true,
       },
     ],
@@ -70,7 +70,7 @@ export class Formbase implements INodeType {
           returnData.push({ json: { error: message }, pairedItem: { item: itemIndex } })
           continue
         }
-        // formbase errors already carry their code and message; anything else gets the failing item.
+        // Formstep errors already carry their code and message; anything else gets the failing item.
         throw isNodeError(error) ? error : new NodeOperationError(this.getNode(), error as Error, { itemIndex })
       }
     }

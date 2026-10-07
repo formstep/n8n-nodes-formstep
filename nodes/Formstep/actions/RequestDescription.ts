@@ -354,7 +354,7 @@ const requestIdProperties: INodeProperties[] = [
     displayOptions: showFor(REQUEST_ID_OPERATIONS, V1),
     default: '',
     required: true,
-    description: 'The ID formbase returned when the request was created',
+    description: 'The ID Formstep returned when the request was created',
   },
   {
     displayName: 'Request',

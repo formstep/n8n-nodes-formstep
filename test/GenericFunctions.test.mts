@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NodeApiError } from 'n8n-workflow'
 
-import { formbaseApiRequest } from '../nodes/Formbase/GenericFunctions'
+import { formstepApiRequest } from '../nodes/Formstep/GenericFunctions'
 
 function makeContext(httpResponse: unknown, opts?: { serverUrl?: string }) {
   const httpRequestWithAuthentication = vi.fn().mockResolvedValue(httpResponse)
   const ctx = {
     getCredentials: vi.fn().mockResolvedValue({
-      serverUrl: opts?.serverUrl ?? 'https://api.formbase.so/api/v1',
+      serverUrl: opts?.serverUrl ?? 'https://api.formstep.io/api/v1',
     }),
-    getNode: vi.fn().mockReturnValue({ name: 'formbase Trigger', type: 'formbaseTrigger', typeVersion: 1 }),
+    getNode: vi.fn().mockReturnValue({ name: 'Formstep Trigger', type: 'formstepTrigger', typeVersion: 1 }),
     helpers: {
       httpRequestWithAuthentication,
     },
@@ -17,7 +17,7 @@ function makeContext(httpResponse: unknown, opts?: { serverUrl?: string }) {
   return { ctx, httpRequestWithAuthentication }
 }
 
-describe('formbaseApiRequest', () => {
+describe('formstepApiRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -28,15 +28,15 @@ describe('formbaseApiRequest', () => {
       data: { id: 'u1', email: 'a@b.com', name: 'Ada' },
     })
 
-    const result = await formbaseApiRequest(ctx as never, 'me.get')
+    const result = await formstepApiRequest(ctx as never, 'me.get')
 
     expect(result).toEqual({ id: 'u1', email: 'a@b.com', name: 'Ada' })
     expect(httpRequestWithAuthentication).toHaveBeenCalledTimes(1)
     const [credentialName, options] = httpRequestWithAuthentication.mock.calls[0]
-    expect(credentialName).toBe('formbaseOAuth2Api')
+    expect(credentialName).toBe('formstepOAuth2Api')
     expect(options).toMatchObject({
       method: 'POST',
-      url: 'https://api.formbase.so/api/v1',
+      url: 'https://api.formstep.io/api/v1',
       body: { method: 'me.get', params: {} },
       json: true,
     })
@@ -51,7 +51,7 @@ describe('formbaseApiRequest', () => {
       { serverUrl: 'https://example.convex.site/api/v1///' }
     )
 
-    await formbaseApiRequest(ctx as never, 'me.get')
+    await formstepApiRequest(ctx as never, 'me.get')
 
     expect(httpRequestWithAuthentication.mock.calls[0][1].url).toBe('https://example.convex.site/api/v1')
   })
@@ -62,7 +62,7 @@ describe('formbaseApiRequest', () => {
       error: { code: 'UNAUTHORIZED', message: 'Bad API token' },
     })
 
-    await expect(formbaseApiRequest(ctx as never, 'me.get')).rejects.toMatchObject({
+    await expect(formstepApiRequest(ctx as never, 'me.get')).rejects.toMatchObject({
       message: expect.stringContaining('UNAUTHORIZED'),
       httpCode: '401',
     })
@@ -74,13 +74,13 @@ describe('formbaseApiRequest', () => {
       error: { code: 'METHOD_NOT_FOUND', message: 'Unknown method: bogus.method' },
     })
 
-    await expect(formbaseApiRequest(ctx as never, 'bogus.method')).rejects.toMatchObject({
+    await expect(formstepApiRequest(ctx as never, 'bogus.method')).rejects.toMatchObject({
       message: expect.stringContaining('METHOD_NOT_FOUND'),
       httpCode: '404',
     })
   })
 
-  it('unwraps the formbase error from a non-2xx, even when n8n throws it from its own copy of n8n-workflow', async () => {
+  it('unwraps the Formstep error from a non-2xx, even when n8n throws it from its own copy of n8n-workflow', async () => {
     const { ctx, httpRequestWithAuthentication } = makeContext(undefined)
     // Not a NodeApiError from this package's n8n-workflow: only the shape n8n's helper gives it.
     httpRequestWithAuthentication.mockRejectedValue({
@@ -98,7 +98,7 @@ describe('formbaseApiRequest', () => {
       },
     })
 
-    const error = await formbaseApiRequest(ctx as never, 'requests.create').catch((thrown: unknown) => thrown)
+    const error = await formstepApiRequest(ctx as never, 'requests.create').catch((thrown: unknown) => thrown)
 
     expect(error).toBeInstanceOf(NodeApiError)
     expect(error).toMatchObject({
@@ -111,13 +111,13 @@ describe('formbaseApiRequest', () => {
   it('rejects malformed API responses', async () => {
     const { ctx } = makeContext({ success: true })
 
-    await expect(formbaseApiRequest(ctx as never, 'me.get')).rejects.toBeInstanceOf(NodeApiError)
+    await expect(formstepApiRequest(ctx as never, 'me.get')).rejects.toBeInstanceOf(NodeApiError)
   })
 
   it('forwards params unchanged', async () => {
     const { ctx, httpRequestWithAuthentication } = makeContext({ ok: true, data: [] })
 
-    await formbaseApiRequest(ctx as never, 'forms.list', { workspaceId: 'w1', limit: 100 })
+    await formstepApiRequest(ctx as never, 'forms.list', { workspaceId: 'w1', limit: 100 })
 
     expect(httpRequestWithAuthentication.mock.calls[0][1].body).toEqual({
       method: 'forms.list',

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { FormbaseOAuth2Api } from '../credentials/FormbaseOAuth2Api.credentials'
+import { FormstepOAuth2Api } from '../credentials/FormstepOAuth2Api.credentials'
 
-describe('FormbaseOAuth2Api', () => {
-  it('uses n8n dynamic client registration against the Formbase API resource', () => {
-    const credential = new FormbaseOAuth2Api()
+describe('FormstepOAuth2Api', () => {
+  it('uses n8n dynamic client registration against the Formstep API resource', () => {
+    const credential = new FormstepOAuth2Api()
 
-    expect(credential.name).toBe('formbaseOAuth2Api')
-    expect(credential.displayName).toBe('Formbase OAuth2 API')
+    expect(credential.name).toBe('formstepOAuth2Api')
+    expect(credential.displayName).toBe('Formstep OAuth2 API')
     expect(credential.extends).toEqual(['oAuth2Api'])
     expect(credential.properties).toEqual([
       expect.objectContaining({
@@ -18,14 +18,14 @@ describe('FormbaseOAuth2Api', () => {
       expect.objectContaining({
         name: 'serverUrl',
         type: 'hidden',
-        default: 'https://api.formbase.so/api/v1',
+        default: 'https://api.formstep.io/api/v1',
         required: true,
       }),
     ])
   })
 
   it('tests the OAuth bearer token against me.get', () => {
-    const credential = new FormbaseOAuth2Api()
+    const credential = new FormstepOAuth2Api()
 
     expect(credential.test).toEqual({
       request: {

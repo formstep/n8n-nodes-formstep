@@ -5,7 +5,7 @@ import type {
   ResourceMapperFields,
 } from 'n8n-workflow'
 
-import { listFields, listForms, listRequestsPage, searchFormsByName, type FormField, type FormSummary, type RequestSummary } from './FormbaseCatalog'
+import { listFields, listForms, listRequestsPage, searchFormsByName, type FormField, type FormSummary, type RequestSummary } from './FormstepCatalog'
 import { fieldOption, isPrefillable, mappableFields, mapperField } from './FormFields'
 
 /**
@@ -66,7 +66,7 @@ export const listSearch = {
     return { results: forms.map(formOption) }
   },
 
-  /** The workspace's requests, newest first, one formbase page per list page. */
+  /** The workspace's requests, newest first, one Formstep page per list page. */
   async searchRequests(this: ILoadOptionsFunctions, _filter?: string, paginationToken?: string): Promise<INodeListSearchResult> {
     const page = await listRequestsPage(this, paginationToken)
     return {

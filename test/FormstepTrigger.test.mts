@@ -2,22 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { NodeApiError, NodeOperationError } from 'n8n-workflow'
 
-vi.mock('../nodes/Formbase/GenericFunctions', () => ({
-  formbaseApiRequest: vi.fn(),
+vi.mock('../nodes/Formstep/GenericFunctions', () => ({
+  formstepApiRequest: vi.fn(),
 }))
 
-import { formbaseApiRequest } from '../nodes/Formbase/GenericFunctions'
-import { FormbaseTrigger } from '../nodes/Formbase/FormbaseTrigger.node'
-import { signEvent } from './fakeFormbase.mts'
+import { formstepApiRequest } from '../nodes/Formstep/GenericFunctions'
+import { FormstepTrigger } from '../nodes/Formstep/FormstepTrigger.node'
+import { signEvent } from './fakeFormstep.mts'
 
-const mockedRequest = formbaseApiRequest as unknown as ReturnType<typeof vi.fn>
+const mockedRequest = formstepApiRequest as unknown as ReturnType<typeof vi.fn>
 
 // Braces on purpose: a hook that returns the mock hands vitest a "cleanup"
 // that calls it after the test, with whatever implementation the test set.
 beforeEach(() => {
   mockedRequest.mockReset()
 })
-const NODE = { name: 'formbase Trigger', type: 'formbaseTrigger', typeVersion: 1 }
+const NODE = { name: 'Formstep Trigger', type: 'formstepTrigger', typeVersion: 1 }
 const SECRET = `whsec_${'a'.repeat(64)}`
 
 /** Answers `method` with `result` whatever the context; the context itself is not under test here. */
@@ -71,7 +71,7 @@ function makeWebhookContext(opts: {
 
   return {
     getBodyData: vi.fn().mockReturnValue(opts.body),
-    getHeaderData: vi.fn().mockReturnValue(opts.signatureHeader === undefined ? {} : { 'x-formbase-signature': opts.signatureHeader }),
+    getHeaderData: vi.fn().mockReturnValue(opts.signatureHeader === undefined ? {} : { 'x-formstep-signature': opts.signatureHeader }),
     getRequestObject: vi.fn().mockReturnValue(rawBody === undefined ? {} : { rawBody }),
     getResponseObject: vi.fn().mockReturnValue(response),
     getWorkflowStaticData: vi.fn().mockReturnValue(opts.secret === undefined ? {} : { webhookSecret: opts.secret }),
@@ -137,21 +137,21 @@ const subscription = (overrides: Record<string, unknown>) => ({
   ...overrides,
 })
 
-describe('formbase Trigger description', () => {
-  it('uses lowercase formbase branding', () => {
-    const trigger = new FormbaseTrigger()
+describe('Formstep Trigger description', () => {
+  it('uses Formstep branding with a capital F', () => {
+    const trigger = new FormstepTrigger()
 
-    expect(trigger.description.displayName).toBe('formbase Trigger')
-    expect(trigger.description.description).toContain('formbase')
-    expect(trigger.description.description).not.toContain('Formbase')
+    expect(trigger.description.displayName).toBe('Formstep Trigger')
+    expect(trigger.description.description).toContain('Formstep')
+    expect(trigger.description.description).not.toContain('formstep')
     expect(trigger.description.icon).toEqual({
-      light: 'file:formbase-logo.svg',
-      dark: 'file:formbase-logo.dark.svg',
+      light: 'file:formstep-logo.svg',
+      dark: 'file:formstep-logo.dark.svg',
     })
   })
 
   it('offers the default event first and idle windows shortest first', () => {
-    const trigger = new FormbaseTrigger()
+    const trigger = new FormstepTrigger()
     const eventProperty = trigger.description.properties.find((property) => property.name === 'event')
     const idleWindowProperty = trigger.description.properties.find((property) => property.name === 'idleWindow')
 
@@ -187,14 +187,14 @@ describe('formbase Trigger description', () => {
   })
 
   it('does not expose the webhook trigger as an AI tool', () => {
-    expect(new FormbaseTrigger().description.usableAsTool).toBeUndefined()
+    expect(new FormstepTrigger().description.usableAsTool).toBeUndefined()
   })
 
   it('ships codex metadata for n8n discovery and documentation', () => {
-    const codex = JSON.parse(readFileSync(new URL('../nodes/Formbase/FormbaseTrigger.node.json', import.meta.url), 'utf8')) as Record<string, unknown>
+    const codex = JSON.parse(readFileSync(new URL('../nodes/Formstep/FormstepTrigger.node.json', import.meta.url), 'utf8')) as Record<string, unknown>
 
     expect(codex).toMatchObject({
-      node: 'n8n-nodes-formbase',
+      node: 'n8n-nodes-formstep',
       nodeVersion: '1.0',
       codexVersion: '1.0',
       categories: ['Marketing & Content', 'Productivity'],
@@ -202,13 +202,13 @@ describe('formbase Trigger description', () => {
   })
 
   it('ships an importable example workflow that reads the envelope', () => {
-    const workflow = JSON.parse(readFileSync(new URL('../examples/formbase-submission.json', import.meta.url), 'utf8')) as {
+    const workflow = JSON.parse(readFileSync(new URL('../examples/formstep-submission.json', import.meta.url), 'utf8')) as {
       nodes: Array<{ type: string; parameters?: { assignments?: { assignments?: Array<{ name: string; value: string }> } } }>
       active: boolean
     }
 
     expect(workflow.active).toBe(false)
-    expect(workflow.nodes.map((node) => node.type)).toEqual(['n8n-nodes-formbase.formbaseTrigger', 'n8n-nodes-base.set'])
+    expect(workflow.nodes.map((node) => node.type)).toEqual(['n8n-nodes-formstep.formstepTrigger', 'n8n-nodes-base.set'])
     const assignments = workflow.nodes[1]?.parameters?.assignments?.assignments ?? []
     expect(assignments).toContainEqual(expect.objectContaining({ name: 'eventId', value: '={{ $json.id }}' }))
     expect(assignments).toContainEqual(expect.objectContaining({ name: 'eventType', value: '={{ $json.type }}' }))
@@ -219,7 +219,7 @@ describe('formbase Trigger description', () => {
   })
 })
 
-describe('FormbaseTrigger.methods.loadOptions.getForms', () => {
+describe('FormstepTrigger.methods.loadOptions.getForms', () => {
   it('lists the forms of the token workspace', async () => {
     respond((method) => {
       if (method === 'workspaces.list') return { items: [{ id: 'ws_1', name: 'Acme' }], hasMore: false }
@@ -233,7 +233,7 @@ describe('FormbaseTrigger.methods.loadOptions.getForms', () => {
       }
     })
 
-    const result = await new FormbaseTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)
+    const result = await new FormstepTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)
 
     expect(result).toEqual([
       { name: 'Customer Survey', value: 'f1' },
@@ -250,7 +250,7 @@ describe('FormbaseTrigger.methods.loadOptions.getForms', () => {
       return { items: [{ id: 'f2', name: 'Signup', isPublished: false }], hasMore: false, nextCursor: null }
     })
 
-    const result = await new FormbaseTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)
+    const result = await new FormstepTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)
 
     expect(result).toEqual([
       { name: 'Survey', value: 'f1' },
@@ -262,12 +262,12 @@ describe('FormbaseTrigger.methods.loadOptions.getForms', () => {
   it('fails when the credential has no workspace instead of offering an empty picker', async () => {
     respond(() => ({ items: [], hasMore: false }))
 
-    await expect(new FormbaseTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)).rejects.toBeInstanceOf(NodeOperationError)
+    await expect(new FormstepTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)).rejects.toBeInstanceOf(NodeOperationError)
     expect(mockedRequest).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
+describe('FormstepTrigger.webhookMethods.default.checkExists', () => {
   it('recognizes the subscription this node registered and leaves other subscriptions alone', async () => {
     const ctx = makeHookContext({
       webhookUrl: 'https://n8n.example/hook/X',
@@ -284,7 +284,7 @@ describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
       hasMore: false,
     }))
 
-    const exists = await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)
+    const exists = await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)
 
     expect(exists).toBe(true)
     expect(ctx._staticData.subscriptionId).toBe('sub_match')
@@ -296,7 +296,7 @@ describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/X', formId: 'f1', staticData: { subscriptionId: 'sub_match' } })
     respond((method) => (method === 'webhooks.list' ? { items: [subscription({})], hasMore: false } : { deleted: true }))
 
-    const exists = await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)
+    const exists = await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)
 
     expect(exists).toBe(false)
     calledWith('webhooks.delete', { subscriptionId: 'sub_match' })
@@ -307,7 +307,7 @@ describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/X', formId: 'f1', staticData: { subscriptionId: 'sub_match', webhookSecret: SECRET } })
     respond((method) => (method === 'webhooks.list' ? { items: [subscription({ subscriptionId: 'sub_stale' }), subscription({})], hasMore: false } : { deleted: true }))
 
-    const exists = await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)
+    const exists = await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)
 
     expect(exists).toBe(true)
     calledWith('webhooks.delete', { subscriptionId: 'sub_stale' })
@@ -328,7 +328,7 @@ describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
         : { deleted: true }
     )
 
-    const exists = await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)
+    const exists = await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)
 
     expect(exists).toBe(false)
     calledWith('webhooks.delete', { subscriptionId: 'sub_old' })
@@ -339,31 +339,31 @@ describe('FormbaseTrigger.webhookMethods.default.checkExists', () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/X' })
     respond(() => ({ items: [], hasMore: false }))
 
-    expect(await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)).toBe(false)
+    expect(await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)).toBe(false)
     expect(ctx._staticData.subscriptionId).toBeUndefined()
   })
 
   it('returns false without an API call when formId is empty', async () => {
     const ctx = makeHookContext({ formId: '' })
 
-    expect(await new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)).toBe(false)
+    expect(await new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)).toBe(false)
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 
   it('rejects an idle window outside the offered choices as a configuration error', async () => {
     const ctx = makeHookContext({ event: 'submission_abandoned', idleWindow: '2d' })
 
-    await expect(new FormbaseTrigger().webhookMethods.default.checkExists.call(ctx as never)).rejects.toBeInstanceOf(NodeOperationError)
+    await expect(new FormstepTrigger().webhookMethods.default.checkExists.call(ctx as never)).rejects.toBeInstanceOf(NodeOperationError)
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 })
 
-describe('FormbaseTrigger.webhookMethods.default.create', () => {
+describe('FormstepTrigger.webhookMethods.default.create', () => {
   it('registers the selected event with a signing secret and stores both IDs', async () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/NEW', formId: 'f1', event: 'submission_abandoned', idleWindow: '3d' })
     respond(() => ({ subscriptionId: 'sub_new' }))
 
-    const created = await new FormbaseTrigger().webhookMethods.default.create.call(ctx as never)
+    const created = await new FormstepTrigger().webhookMethods.default.create.call(ctx as never)
 
     expect(created).toBe(true)
     calledWith('webhooks.create', {
@@ -383,7 +383,7 @@ describe('FormbaseTrigger.webhookMethods.default.create', () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/NEW', formId: 'f1', event: 'submission_created' })
     respond(() => ({ subscriptionId: 'sub_new' }))
 
-    await new FormbaseTrigger().webhookMethods.default.create.call(ctx as never)
+    await new FormstepTrigger().webhookMethods.default.create.call(ctx as never)
 
     expect(mockedRequest.mock.calls[0][2]).not.toHaveProperty('idleWindow')
   })
@@ -392,7 +392,7 @@ describe('FormbaseTrigger.webhookMethods.default.create', () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/NEW', formId: 'f1', event, idleWindow: '3d' })
     respond(() => ({ subscriptionId: 'sub_new' }))
 
-    expect(await new FormbaseTrigger().webhookMethods.default.create.call(ctx as never)).toBe(true)
+    expect(await new FormstepTrigger().webhookMethods.default.create.call(ctx as never)).toBe(true)
 
     calledWith('webhooks.create', {
       formId: 'f1',
@@ -405,12 +405,12 @@ describe('FormbaseTrigger.webhookMethods.default.create', () => {
   })
 })
 
-describe('FormbaseTrigger.webhookMethods.default.delete', () => {
+describe('FormstepTrigger.webhookMethods.default.delete', () => {
   it('deletes the stored subscription and clears static data', async () => {
     const ctx = makeHookContext({ staticData: { subscriptionId: 'sub_xyz', webhookSecret: SECRET } })
     respond(() => ({ subscriptionId: 'sub_xyz', deleted: true }))
 
-    expect(await new FormbaseTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
+    expect(await new FormstepTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
     calledWith('webhooks.delete', { subscriptionId: 'sub_xyz' })
     expect(ctx._staticData).toEqual({})
   })
@@ -418,7 +418,7 @@ describe('FormbaseTrigger.webhookMethods.default.delete', () => {
   it('is a no-op when no subscription ID is stored', async () => {
     const ctx = makeHookContext({})
 
-    expect(await new FormbaseTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
+    expect(await new FormstepTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 
@@ -429,7 +429,7 @@ describe('FormbaseTrigger.webhookMethods.default.delete', () => {
       throw notFound
     })
 
-    expect(await new FormbaseTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
+    expect(await new FormstepTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
     expect(ctx._staticData.subscriptionId).toBeUndefined()
   })
 
@@ -439,7 +439,7 @@ describe('FormbaseTrigger.webhookMethods.default.delete', () => {
       throw { name: 'NodeApiError', node: NODE, message: 'Webhook not found', httpCode: '404' }
     })
 
-    expect(await new FormbaseTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
+    expect(await new FormstepTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(true)
     expect(ctx._staticData.subscriptionId).toBeUndefined()
   })
 
@@ -449,18 +449,18 @@ describe('FormbaseTrigger.webhookMethods.default.delete', () => {
       throw new Error('network unavailable')
     })
 
-    expect(await new FormbaseTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(false)
+    expect(await new FormstepTrigger().webhookMethods.default.delete.call(ctx as never)).toBe(false)
     expect(ctx._staticData.subscriptionId).toBe('sub_retry')
   })
 })
 
-describe('FormbaseTrigger.webhook', () => {
+describe('FormstepTrigger.webhook', () => {
   it.each(['submission.completed', 'submission.updated', 'submission.abandoned'])('emits a valid signed %s webhook body as one n8n item', async (type) => {
     const body = makeEventBody(type)
     const rawBody = JSON.stringify(body)
     const ctx = makeWebhookContext({ body, secret: SECRET, rawBody, signatureHeader: signEvent(SECRET, Math.floor(Date.now() / 1000), rawBody) })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
 
     expect(result.workflowData).toEqual([[{ json: body }]])
     expect(ctx._response.status).not.toHaveBeenCalled()
@@ -471,7 +471,7 @@ describe('FormbaseTrigger.webhook', () => {
     const rawBody = JSON.stringify(body)
     const ctx = makeWebhookContext({ body, secret: SECRET, rawBody, signatureHeader: signEvent(SECRET, Math.floor(Date.now() / 1000), rawBody) })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
 
     expect(result.workflowData).toEqual([[{ json: body }]])
     const data = (result.workflowData?.[0]?.[0]?.json as { data: Record<string, unknown> }).data
@@ -487,7 +487,7 @@ describe('FormbaseTrigger.webhook', () => {
     const rawBody = JSON.stringify(body)
     const ctx = makeWebhookContext({ body, secret: SECRET, rawBody, signatureHeader: signEvent(SECRET, Math.floor(Date.now() / 1000), rawBody) })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
     const item = result.workflowData?.[0]?.[0]?.json as Record<string, unknown>
     const data = item.data as Record<string, unknown>
 
@@ -532,7 +532,7 @@ describe('FormbaseTrigger.webhook', () => {
     const rawBody = JSON.stringify(body)
     const ctx = makeWebhookContext({ body, secret: SECRET, rawBody, signatureHeader: signEvent(SECRET, Math.floor(Date.now() / 1000), rawBody) })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
     const data = (result.workflowData?.[0]?.[0]?.json as Record<string, Record<string, unknown>>).data
 
     expect(data.answers.book_a_call).toEqual(booking)
@@ -550,7 +550,7 @@ describe('FormbaseTrigger.webhook', () => {
     const resolvedHeader = signatureHeader === 'valid' ? signEvent(SECRET, Math.floor(Date.now() / 1000), serializedBody) : signatureHeader
     const ctx = makeWebhookContext({ body, secret: SECRET, signatureHeader: resolvedHeader, rawBody })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
 
     expect(result).toEqual({ noWebhookResponse: true })
     expect(ctx._response.status).toHaveBeenCalledWith(401)
@@ -563,7 +563,7 @@ describe('FormbaseTrigger.webhook', () => {
     const rawBody = JSON.stringify(body)
     const ctx = makeWebhookContext({ body, secret: SECRET, rawBody, signatureHeader: signEvent(SECRET, Math.floor(Date.now() / 1000) - 301, rawBody) })
 
-    const result = await new FormbaseTrigger().webhook.call(ctx as never)
+    const result = await new FormstepTrigger().webhook.call(ctx as never)
 
     expect(result).toEqual({ noWebhookResponse: true })
     expect(ctx._response.status).toHaveBeenCalledWith(401)

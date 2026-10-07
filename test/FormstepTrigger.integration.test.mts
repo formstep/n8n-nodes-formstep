@@ -1,21 +1,21 @@
 /**
- * The whole node against a formbase API speaking real HTTP: pick a form,
+ * The whole node against a Formstep API speaking real HTTP: pick a form,
  * activate (register a signed subscription), receive a delivery, re-check on
  * the next activation, deactivate. Only n8n's own helpers are stood in for;
- * `formbaseApiRequest` and the wire format are the real ones.
+ * `formstepApiRequest` and the wire format are the real ones.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NodeApiError } from 'n8n-workflow'
 
-import { FormbaseTrigger } from '../nodes/Formbase/FormbaseTrigger.node'
-import { ACCESS_TOKEN, FakeFormbase, makeHelpers } from './fakeFormbase.mts'
+import { FormstepTrigger } from '../nodes/Formstep/FormstepTrigger.node'
+import { ACCESS_TOKEN, FakeFormstep, makeHelpers } from './fakeFormstep.mts'
 
-const WEBHOOK_URL = 'https://n8n.example.com/webhook/formbase'
+const WEBHOOK_URL = 'https://n8n.example.com/webhook/formstep'
 
-let formbase: FakeFormbase
+let formstep: FakeFormstep
 
 beforeAll(async () => {
-  formbase = await new FakeFormbase({
+  formstep = await new FakeFormstep({
     forms: [
       { id: 'form_live', name: 'Vendor onboarding', published: true },
       { id: 'form_draft', name: 'Draft', published: false },
@@ -23,12 +23,12 @@ beforeAll(async () => {
   }).start()
 })
 
-afterAll(() => formbase.stop())
+afterAll(() => formstep.stop())
 
 function makeHookContext(options: { event?: string; idleWindow?: string; staticData?: Record<string, unknown>; accessToken?: string } = {}) {
   const staticData = options.staticData ?? {}
   return {
-    ...makeHelpers(formbase.baseUrl, options.accessToken ?? ACCESS_TOKEN),
+    ...makeHelpers(formstep.baseUrl, options.accessToken ?? ACCESS_TOKEN),
     getNodeWebhookUrl: vi.fn().mockReturnValue(WEBHOOK_URL),
     getNodeParameter: vi.fn((name: string) => {
       if (name === 'formId') return 'form_live'
@@ -46,7 +46,7 @@ function makeWebhookContext(staticData: Record<string, unknown>, delivery: { hea
   response.status.mockReturnValue(response)
   response.send.mockReturnValue(response)
   return {
-    ...makeHelpers(formbase.baseUrl),
+    ...makeHelpers(formstep.baseUrl),
     getBodyData: vi.fn().mockReturnValue(JSON.parse(delivery.content)),
     getHeaderData: vi.fn().mockReturnValue(delivery.headers),
     getRequestObject: vi.fn().mockReturnValue({ rawBody: Buffer.from(delivery.content) }),
@@ -56,12 +56,12 @@ function makeWebhookContext(staticData: Record<string, unknown>, delivery: { hea
   }
 }
 
-describe('formbase Trigger lifecycle', () => {
+describe('Formstep Trigger lifecycle', () => {
   it('goes from form picker to delivered submission and back to deactivated', async () => {
-    const trigger = new FormbaseTrigger()
+    const trigger = new FormstepTrigger()
 
     // 1. The form picker lists the workspace's forms.
-    const forms = await trigger.methods.loadOptions.getForms.call(makeHelpers(formbase.baseUrl) as never)
+    const forms = await trigger.methods.loadOptions.getForms.call(makeHelpers(formstep.baseUrl) as never)
     expect(forms).toEqual([
       { name: 'Vendor onboarding', value: 'form_live' },
       { name: 'Draft (not published)', value: 'form_draft' },
@@ -72,28 +72,28 @@ describe('formbase Trigger lifecycle', () => {
     expect(await trigger.webhookMethods.default.checkExists.call(activation as never)).toBe(false)
     expect(await trigger.webhookMethods.default.create.call(activation as never)).toBe(true)
     const subscriptionId = activation.staticData.subscriptionId as string
-    expect(formbase.subscriptions.get(subscriptionId)).toMatchObject({
+    expect(formstep.subscriptions.get(subscriptionId)).toMatchObject({
       provider: 'n8n',
       targetUrl: WEBHOOK_URL,
       eventType: 'submission_created',
       signingSecret: activation.staticData.webhookSecret,
     })
 
-    // 3. formbase delivers a submission; the node verifies it and emits the envelope untouched.
-    const event = formbase.buildEvent({
+    // 3. Formstep delivers a submission; the node verifies it and emits the envelope untouched.
+    const event = formstep.buildEvent({
       formId: 'form_live',
       answers: { company_name: 'Acme', plan: 'pro', contacts: [{ name: 'Ada' }] },
       display: { company_name: 'Acme', plan: 'Pro', contacts: 'Ada' },
       request: { id: 'req_1', externalId: 'run-42' },
     })
-    const delivery = formbase.deliver(subscriptionId, event)
+    const delivery = formstep.deliver(subscriptionId, event)
     const received = makeWebhookContext(activation.staticData, delivery)
     const result = await trigger.webhook.call(received as never)
     expect(result.workflowData).toEqual([[{ json: event }]])
     expect(received.response.status).not.toHaveBeenCalled()
 
     // 4. A delivery signed with another secret is answered 401 and starts nothing.
-    const forged = { ...delivery, headers: { ...delivery.headers, 'x-formbase-signature': delivery.headers['x-formbase-signature'].replace(/sha256=.*/, `sha256=${'0'.repeat(64)}`) } }
+    const forged = { ...delivery, headers: { ...delivery.headers, 'x-formstep-signature': delivery.headers['x-formstep-signature'].replace(/sha256=.*/, `sha256=${'0'.repeat(64)}`) } }
     const rejected = makeWebhookContext(activation.staticData, forged)
     expect(await trigger.webhook.call(rejected as never)).toEqual({ noWebhookResponse: true })
     expect(rejected.response.status).toHaveBeenCalledWith(401)
@@ -101,16 +101,16 @@ describe('formbase Trigger lifecycle', () => {
     // 5. The next activation recognises its own subscription and registers nothing new.
     const reactivation = makeHookContext({ staticData: activation.staticData })
     expect(await trigger.webhookMethods.default.checkExists.call(reactivation as never)).toBe(true)
-    expect(formbase.subscriptions.size).toBe(1)
+    expect(formstep.subscriptions.size).toBe(1)
 
     // 6. Changing the event replaces the subscription rather than adding a second delivery path.
     const changed = makeHookContext({ event: 'submission_abandoned', idleWindow: '3d', staticData: activation.staticData })
     expect(await trigger.webhookMethods.default.checkExists.call(changed as never)).toBe(false)
     expect(await trigger.webhookMethods.default.create.call(changed as never)).toBe(true)
-    expect(formbase.subscriptions.size).toBe(2)
-    expect(formbase.subscriptions.get(changed.staticData.subscriptionId as string)).toMatchObject({ eventType: 'submission_abandoned', idleWindow: '3d' })
+    expect(formstep.subscriptions.size).toBe(2)
+    expect(formstep.subscriptions.get(changed.staticData.subscriptionId as string)).toMatchObject({ eventType: 'submission_abandoned', idleWindow: '3d' })
     // The created-submission subscription is not this node's any more, but it belongs to a different event, so it is left alone …
-    expect(formbase.subscriptions.has(subscriptionId)).toBe(true)
+    expect(formstep.subscriptions.has(subscriptionId)).toBe(true)
 
     // 7. Deactivation removes the subscription; deactivating again is still a success.
     expect(await trigger.webhookMethods.default.delete.call(changed as never)).toBe(true)
@@ -120,22 +120,22 @@ describe('formbase Trigger lifecycle', () => {
     // … and is cleaned up when the node activates on that event again without a secret for it.
     const orphaned = makeHookContext({ staticData: { subscriptionId } })
     expect(await trigger.webhookMethods.default.checkExists.call(orphaned as never)).toBe(false)
-    expect(formbase.subscriptions.size).toBe(0)
+    expect(formstep.subscriptions.size).toBe(0)
   })
 
   it('subscribes to request outcomes and receives the request envelope', async () => {
-    const trigger = new FormbaseTrigger()
+    const trigger = new FormstepTrigger()
 
     // A request subscription registers without an idle window, whatever the idle-window parameter holds.
     const activation = makeHookContext({ event: 'request_completed', idleWindow: '3d' })
     expect(await trigger.webhookMethods.default.create.call(activation as never)).toBe(true)
     const subscriptionId = activation.staticData.subscriptionId as string
-    expect(formbase.subscriptions.get(subscriptionId)).toMatchObject({ eventType: 'request_completed', targetUrl: WEBHOOK_URL })
-    expect(formbase.subscriptions.get(subscriptionId)).not.toHaveProperty('idleWindow')
+    expect(formstep.subscriptions.get(subscriptionId)).toMatchObject({ eventType: 'request_completed', targetUrl: WEBHOOK_URL })
+    expect(formstep.subscriptions.get(subscriptionId)).not.toHaveProperty('idleWindow')
 
     // A completed request arrives with the request block and the answers.
-    const completed = formbase.buildRequestEvent({ formId: 'form_live', type: 'request.completed', answers: { company_name: 'Acme' }, display: { company_name: 'Acme' } })
-    const received = makeWebhookContext(activation.staticData, formbase.deliver(subscriptionId, completed))
+    const completed = formstep.buildRequestEvent({ formId: 'form_live', type: 'request.completed', answers: { company_name: 'Acme' }, display: { company_name: 'Acme' } })
+    const received = makeWebhookContext(activation.staticData, formstep.deliver(subscriptionId, completed))
     expect(await trigger.webhook.call(received as never)).toEqual({ workflowData: [[{ json: completed }]] })
 
     // Expired and canceled requests use the same subscription lifecycle and the same signature check.
@@ -143,43 +143,43 @@ describe('formbase Trigger lifecycle', () => {
     expect(await trigger.webhookMethods.default.checkExists.call(changed as never)).toBe(false)
     expect(await trigger.webhookMethods.default.create.call(changed as never)).toBe(true)
     const canceledId = changed.staticData.subscriptionId as string
-    const canceled = formbase.buildRequestEvent({ formId: 'form_live', type: 'request.canceled', request: { cancelReason: 'duplicate' } })
-    const canceledDelivery = formbase.deliver(canceledId, canceled)
+    const canceled = formstep.buildRequestEvent({ formId: 'form_live', type: 'request.canceled', request: { cancelReason: 'duplicate' } })
+    const canceledDelivery = formstep.deliver(canceledId, canceled)
     expect(await trigger.webhook.call(makeWebhookContext(changed.staticData, canceledDelivery) as never)).toEqual({ workflowData: [[{ json: canceled }]] })
-    const forged = makeWebhookContext(changed.staticData, formbase.deliver(subscriptionId, canceled))
+    const forged = makeWebhookContext(changed.staticData, formstep.deliver(subscriptionId, canceled))
     expect(await trigger.webhook.call(forged as never)).toEqual({ noWebhookResponse: true })
     expect(forged.response.status).toHaveBeenCalledWith(401)
 
-    await formbase.subscriptions.clear()
+    await formstep.subscriptions.clear()
   })
 
   it('subscribes to public-link submission edits on their own event', async () => {
-    const trigger = new FormbaseTrigger()
+    const trigger = new FormstepTrigger()
 
     // An updated-submission subscription registers without an idle window, whatever the idle-window parameter holds.
     const activation = makeHookContext({ event: 'submission_updated', idleWindow: '3d' })
     expect(await trigger.webhookMethods.default.create.call(activation as never)).toBe(true)
     const subscriptionId = activation.staticData.subscriptionId as string
-    expect(formbase.subscriptions.get(subscriptionId)).toMatchObject({ eventType: 'submission_updated', targetUrl: WEBHOOK_URL })
-    expect(formbase.subscriptions.get(subscriptionId)).not.toHaveProperty('idleWindow')
+    expect(formstep.subscriptions.get(subscriptionId)).toMatchObject({ eventType: 'submission_updated', targetUrl: WEBHOOK_URL })
+    expect(formstep.subscriptions.get(subscriptionId)).not.toHaveProperty('idleWindow')
 
     // The edit arrives as a submission.updated envelope, passed through untouched.
-    const updated = formbase.buildEvent({ formId: 'form_live', type: 'submission.updated', answers: { company_name: 'Acme Ltd' }, display: { company_name: 'Acme Ltd' } })
-    const received = makeWebhookContext(activation.staticData, formbase.deliver(subscriptionId, updated))
+    const updated = formstep.buildEvent({ formId: 'form_live', type: 'submission.updated', answers: { company_name: 'Acme Ltd' }, display: { company_name: 'Acme Ltd' } })
+    const received = makeWebhookContext(activation.staticData, formstep.deliver(subscriptionId, updated))
     expect(await trigger.webhook.call(received as never)).toEqual({ workflowData: [[{ json: updated }]] })
 
     // A second node on Public Link Submission Created keeps its own subscription: the two events never replace each other.
     const created = makeHookContext({ event: 'submission_created', staticData: {} })
     expect(await trigger.webhookMethods.default.checkExists.call(created as never)).toBe(false)
     expect(await trigger.webhookMethods.default.create.call(created as never)).toBe(true)
-    expect(formbase.subscriptions.has(subscriptionId)).toBe(true)
-    expect(formbase.subscriptions.size).toBe(2)
+    expect(formstep.subscriptions.has(subscriptionId)).toBe(true)
+    expect(formstep.subscriptions.size).toBe(2)
 
-    await formbase.subscriptions.clear()
+    await formstep.subscriptions.clear()
   })
 
-  it('treats a subscription formbase already dropped as deleted', async () => {
-    const trigger = new FormbaseTrigger()
+  it('treats a subscription Formstep already dropped as deleted', async () => {
+    const trigger = new FormstepTrigger()
     const ctx = makeHookContext({ staticData: { subscriptionId: 'int_gone', webhookSecret: 'x' } })
 
     expect(await trigger.webhookMethods.default.delete.call(ctx as never)).toBe(true)
@@ -187,7 +187,7 @@ describe('formbase Trigger lifecycle', () => {
   })
 
   it('surfaces an expired token as a 401 NodeApiError so n8n refreshes the credential', async () => {
-    const trigger = new FormbaseTrigger()
+    const trigger = new FormstepTrigger()
     const ctx = makeHookContext({ accessToken: 'fbo_expired' })
 
     await expect(trigger.webhookMethods.default.checkExists.call(ctx as never)).rejects.toSatisfy((error: unknown) => {

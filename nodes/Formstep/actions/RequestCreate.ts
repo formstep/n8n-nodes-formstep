@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto'
 import type { IExecuteFunctions, ResourceMapperValue } from 'n8n-workflow'
 import { NodeOperationError } from 'n8n-workflow'
 
-import type { FormField } from '../FormbaseCatalog'
+import type { FormField } from '../FormstepCatalog'
 import { splitFieldValues, type FieldValues } from '../FormFields'
-import { formbaseApiRequest } from '../GenericFunctions'
+import { formstepApiRequest } from '../GenericFunctions'
 
 /** A form's live field list, fetched once per form per execution. */
 export type FieldLookup = (formId: string) => Promise<FormField[]>
@@ -123,7 +123,7 @@ function readReminders(reminders: string): string[] {
 /**
  * The URL n8n resumes this execution on. n8n exposes it to expressions as
  * `$execution.resumeUrl`; a Wait node set to "On webhook call" parks the
- * execution until formbase POSTs the request callback to it.
+ * execution until Formstep POSTs the request callback to it.
  */
 function readResumeUrl(context: IExecuteFunctions, itemIndex: number): string {
   const resumeUrl = context.evaluateExpression('{{ $execution.resumeUrl }}', itemIndex)
@@ -139,7 +139,7 @@ function readResumeUrl(context: IExecuteFunctions, itemIndex: number): string {
 
 /**
  * Upload the input item's files named in the documents collection and return
- * the `documents` entries `requests.create` takes. formbase reserves each
+ * the `documents` entries `requests.create` takes. Formstep reserves each
  * document with `documents.create` and hands back a presigned URL; the bytes
  * go straight to storage and `requests.create` verifies them against the
  * declared size and sha256.
@@ -159,7 +159,7 @@ async function uploadDocuments(context: IExecuteFunctions, formId: string, itemI
       throw new NodeOperationError(context.getNode(), `The file in ${binaryProperty} has no file name; set a 'Name' for it`, { itemIndex })
     }
 
-    const reserved = await formbaseApiRequest<ReservedDocument>(context, 'documents.create', {
+    const reserved = await formstepApiRequest<ReservedDocument>(context, 'documents.create', {
       formId,
       name,
       contentType: binary.mimeType,

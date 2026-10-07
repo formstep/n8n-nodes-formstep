@@ -1,6 +1,6 @@
 import type { FieldType, INodePropertyOptions, ResourceMapperField } from 'n8n-workflow'
 
-import type { FormField } from './FormbaseCatalog'
+import type { FormField } from './FormstepCatalog'
 
 /** The values of one request's fields, split the way `requests.create` takes them. */
 export interface FieldValues {
@@ -90,7 +90,7 @@ const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/
 /**
  * A date field's prefill value, `"2026-03-04"`. The mapper hands a date over
  * as a Luxon DateTime; an expression or an input item can hand over an ISO
- * string or a Date. Anything else is left for formbase to reject with its own
+ * string or a Date. Anything else is left for Formstep to reject with its own
  * INVALID_PREFILL_VALUE.
  */
 function toIsoDate(value: unknown): unknown {
@@ -105,7 +105,7 @@ function toIsoDate(value: unknown): unknown {
  * list, skipping blanks. `onlyFormFields` is for Map Automatically, where the
  * input item carries whatever the previous node produced and only the keys of
  * this form are meant; a value mapped by hand under a key the form no longer
- * has is sent anyway, so formbase names it in its error.
+ * has is sent anyway, so Formstep names it in its error.
  */
 export function splitFieldValues(fields: FormField[], values: Record<string, unknown>, onlyFormFields: boolean): FieldValues {
   const byKey = new Map(fields.map((field) => [field.key, field]))

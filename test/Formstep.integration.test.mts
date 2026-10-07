@@ -1,21 +1,21 @@
 /**
- * The formbase node against a formbase API speaking real HTTP: create a
+ * The Formstep node against a Formstep API speaking real HTTP: create a
  * request that waits for its outcome, read it, remind, list, cancel, replay.
- * Only n8n's own helpers are stood in for; `formbaseApiRequest` and the wire
+ * Only n8n's own helpers are stood in for; `formstepApiRequest` and the wire
  * format are the real ones.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NodeApiError } from 'n8n-workflow'
 
-import { Formbase } from '../nodes/Formbase/Formbase.node'
-import { FakeFormbase, makeHelpers } from './fakeFormbase.mts'
+import { Formstep } from '../nodes/Formstep/Formstep.node'
+import { FakeFormstep, makeHelpers } from './fakeFormstep.mts'
 
 const RESUME_URL = 'https://n8n.example.com/webhook-waiting/exec_1'
 
-let formbase: FakeFormbase
+let formstep: FakeFormstep
 
 beforeAll(async () => {
-  formbase = await new FakeFormbase({
+  formstep = await new FakeFormstep({
     forms: [
       { id: 'form_live', name: 'Vendor onboarding', published: true },
       { id: 'form_draft', name: 'Draft', published: false },
@@ -29,17 +29,17 @@ beforeAll(async () => {
   }).start()
 })
 
-afterAll(() => formbase.stop())
+afterAll(() => formstep.stop())
 
 function makeExecuteContext(parameters: Record<string, unknown>) {
   return {
-    ...makeHelpers(formbase.baseUrl),
+    ...makeHelpers(formstep.baseUrl),
     getInputData: vi.fn().mockReturnValue([{ json: {} }]),
     getNodeParameter: vi.fn((name: string, _itemIndex: number, fallback?: unknown) => parameters[name] ?? fallback),
     evaluateExpression: vi.fn().mockReturnValue(RESUME_URL),
     continueOnFail: vi.fn().mockReturnValue(false),
     helpers: {
-      ...makeHelpers(formbase.baseUrl).helpers,
+      ...makeHelpers(formstep.baseUrl).helpers,
       returnJsonArray: (input: unknown) => (Array.isArray(input) ? input : [input]).map((json) => ({ json })),
       constructExecutionMetaData: (items: Array<{ json: unknown }>, { itemData }: { itemData: { item: number } }) =>
         items.map((item) => ({ ...item, pairedItem: itemData })),
@@ -48,21 +48,21 @@ function makeExecuteContext(parameters: Record<string, unknown>) {
 }
 
 async function runOperation(parameters: Record<string, unknown>) {
-  const [items] = await new Formbase().execute.call(makeExecuteContext({ resource: 'request', ...parameters }) as never)
+  const [items] = await new Formstep().execute.call(makeExecuteContext({ resource: 'request', ...parameters }) as never)
   return items.map((item) => item.json as Record<string, unknown>)
 }
 
-describe('formbase node lifecycle', () => {
+describe('Formstep node lifecycle', () => {
   it('creates a request that resumes the workflow, then reads, reminds, lists, cancels and replays it', async () => {
-    const node = new Formbase()
+    const node = new Formstep()
 
     // 1. The pickers list the workspace's forms and the selected form's keys.
-    const forms = await node.methods.loadOptions.getForms.call(makeHelpers(formbase.baseUrl) as never)
+    const forms = await node.methods.loadOptions.getForms.call(makeHelpers(formstep.baseUrl) as never)
     expect(forms).toEqual([
       { name: 'Vendor onboarding', value: 'form_live' },
       { name: 'Draft (not published)', value: 'form_draft' },
     ])
-    const picker = { ...makeHelpers(formbase.baseUrl), getCurrentNodeParameter: () => 'form_live' }
+    const picker = { ...makeHelpers(formstep.baseUrl), getCurrentNodeParameter: () => 'form_live' }
     expect(await node.methods.loadOptions.getPrefillKeys.call(picker as never)).toEqual([{ name: 'Company (company_name)', value: 'company_name' }])
     expect(await node.methods.loadOptions.getContextKeys.call(picker as never)).toEqual([{ name: 'Case (case_id)', value: 'case_id' }])
 
@@ -77,8 +77,8 @@ describe('formbase node lifecycle', () => {
       waitForOutcome: true,
       additionalFields: { externalId: 'run-42', metadata: '{"runId":"run-42"}' },
     })
-    expect(created).toMatchObject({ id: 'req_1', status: 'pending', url: 'https://forms.formbase.so/r/rq_req_1', hasCallback: true, deduplicated: false })
-    expect(formbase.requests.get('req_1')?.params).toEqual({
+    expect(created).toMatchObject({ id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_req_1', hasCallback: true, deduplicated: false })
+    expect(formstep.requests.get('req_1')?.params).toEqual({
       formId: 'form_live',
       recipient: { email: 'ada@acme.com' },
       prefill: { company_name: 'Acme' },
@@ -102,7 +102,7 @@ describe('formbase node lifecycle', () => {
       additionalFields: { externalId: 'run-42', metadata: '{"runId":"run-42"}' },
     })
     expect(again).toMatchObject({ id: 'req_1', deduplicated: true })
-    expect(formbase.requests.size).toBe(1)
+    expect(formstep.requests.size).toBe(1)
 
     // 4. Get, remind and list read it back.
     const [read] = await runOperation({ operation: 'get', requestId: 'req_1' })
@@ -122,7 +122,7 @@ describe('formbase node lifecycle', () => {
     expect(replayed).toEqual({ dispatchId: 'disp_req_1', eventId: 'evt_req_1' })
   })
 
-  it('titles the error with the formbase code and message, and names the cause underneath', async () => {
+  it('titles the error with the Formstep code and message, and names the cause underneath', async () => {
     const body = { formId: 'form_live', recipientEmail: 'a@example.com', additionalFields: { delivery: 'none', externalId: 'run-conflict' } }
     await runOperation({ operation: 'create', ...body })
 
@@ -135,15 +135,15 @@ describe('formbase node lifecycle', () => {
     )
   })
 
-  it('surfaces an unpublished form as the formbase validation error', async () => {
+  it('surfaces an unpublished form as the Formstep validation error', async () => {
     await expect(runOperation({ operation: 'create', formId: 'form_draft' })).rejects.toSatisfy(
       (error: unknown) => error instanceof NodeApiError && error.httpCode === '400' && error.description === 'FORM_NOT_PUBLISHED'
     )
   })
 
   it('maps the fields of a version 2 node and picks the form and the request with resource locators', async () => {
-    const node = new Formbase()
-    const v2 = { ...makeHelpers(formbase.baseUrl), getNode: vi.fn().mockReturnValue({ name: 'formbase', type: 'formbase', typeVersion: 2 }) }
+    const node = new Formstep()
+    const v2 = { ...makeHelpers(formstep.baseUrl), getNode: vi.fn().mockReturnValue({ name: 'Formstep', type: 'formstep', typeVersion: 2 }) }
     const formLocator = { __rl: true, mode: 'list', value: 'form_live' }
 
     // 1. The Fields mapper lists the form's fields, context ones marked.
@@ -173,7 +173,7 @@ describe('formbase node lifecycle', () => {
     }
     const [[created]] = await node.execute.call(ctx as never)
     const id = String((created.json as { id: string }).id)
-    expect(formbase.requests.get(id)?.params).toEqual({
+    expect(formstep.requests.get(id)?.params).toEqual({
       formId: 'form_live',
       prefill: { company_name: 'Acme' },
       context: { case_id: 'CASE-9' },

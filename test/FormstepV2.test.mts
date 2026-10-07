@@ -1,25 +1,25 @@
 /**
- * Version 2 of the formbase node: the Form and Request resource locators, the
+ * Version 2 of the Formstep node: the Form and Request resource locators, the
  * Fields mapper and what Create sends from it. Version 1 keeps its own
- * parameters and is covered by Formbase.test.mts.
+ * parameters and is covered by Formstep.test.mts.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { INodeProperties } from 'n8n-workflow'
 
-vi.mock('../nodes/Formbase/GenericFunctions', () => ({
-  formbaseApiRequest: vi.fn(),
+vi.mock('../nodes/Formstep/GenericFunctions', () => ({
+  formstepApiRequest: vi.fn(),
 }))
 
-import { formbaseApiRequest } from '../nodes/Formbase/GenericFunctions'
-import { Formbase } from '../nodes/Formbase/Formbase.node'
+import { formstepApiRequest } from '../nodes/Formstep/GenericFunctions'
+import { Formstep } from '../nodes/Formstep/Formstep.node'
 
-const mockedRequest = formbaseApiRequest as unknown as ReturnType<typeof vi.fn>
+const mockedRequest = formstepApiRequest as unknown as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   mockedRequest.mockReset()
 })
 
-const NODE = { name: 'formbase', type: 'formbase', typeVersion: 2 }
+const NODE = { name: 'Formstep', type: 'formstep', typeVersion: 2 }
 
 const FIELDS = [
   { key: 'company_name', type: 'text', title: 'Company', prefillable: true },
@@ -45,7 +45,7 @@ function respond(handler: (method: string, params: Record<string, unknown>) => u
 function respondWithForm() {
   respond((method) => {
     if (method === 'fields.list') return { published: true, items: FIELDS, hasMore: false }
-    return { id: 'req_1', status: 'pending', url: 'https://forms.formbase.so/r/rq_1' }
+    return { id: 'req_1', status: 'pending', url: 'https://forms.formstep.io/r/rq_1' }
   })
 }
 
@@ -93,12 +93,12 @@ function makeLoadOptionsContext(currentParameters: Record<string, unknown> = {})
 }
 
 async function run(parameters: Array<Record<string, unknown>>, inputs?: Array<Record<string, unknown>>) {
-  const [items] = await new Formbase().execute.call(makeExecuteContext(parameters, inputs) as never)
+  const [items] = await new Formstep().execute.call(makeExecuteContext(parameters, inputs) as never)
   return items
 }
 
 function propertiesNamed(name: string): INodeProperties[] {
-  return new Formbase().description.properties.filter((property) => property.name === name)
+  return new Formstep().description.properties.filter((property) => property.name === name)
 }
 
 /** The property named `name` that shows for version 2. */
@@ -109,9 +109,9 @@ function v2Property(name: string): INodeProperties | undefined {
   })
 }
 
-describe('formbase node versions', () => {
+describe('Formstep node versions', () => {
   it('defaults new nodes to version 2 and keeps version 1 for saved workflows', () => {
-    const { description } = new Formbase()
+    const { description } = new Formstep()
 
     expect(description.version).toEqual([1, 2])
     expect(description.defaultVersion).toBe(2)
@@ -148,12 +148,12 @@ describe('formbase node versions', () => {
   })
 })
 
-describe('Formbase.methods.resourceMapping.getMappingFields', () => {
-  it('offers every field a request can fill in, typed by what formbase expects', async () => {
+describe('Formstep.methods.resourceMapping.getMappingFields', () => {
+  it('offers every field a request can fill in, typed by what Formstep expects', async () => {
     respondWithForm()
     const ctx = makeLoadOptionsContext({ formId: locator('form_1') })
 
-    const { fields } = await new Formbase().methods.resourceMapping.getMappingFields.call(ctx as never)
+    const { fields } = await new Formstep().methods.resourceMapping.getMappingFields.call(ctx as never)
 
     expect(fields.map(({ id, displayName, type }) => ({ id, displayName, type }))).toEqual([
       { id: 'company_name', displayName: 'Company (company_name)', type: 'string' },
@@ -176,7 +176,7 @@ describe('Formbase.methods.resourceMapping.getMappingFields', () => {
   it('offers nothing until a form is picked', async () => {
     const ctx = makeLoadOptionsContext({ formId: locator('') })
 
-    await expect(new Formbase().methods.resourceMapping.getMappingFields.call(ctx as never)).resolves.toEqual({ fields: [] })
+    await expect(new Formstep().methods.resourceMapping.getMappingFields.call(ctx as never)).resolves.toEqual({ fields: [] })
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 
@@ -184,13 +184,13 @@ describe('Formbase.methods.resourceMapping.getMappingFields', () => {
     respondWithForm()
     const ctx = makeLoadOptionsContext({ formId: locator('form_1', 'id') })
 
-    const keys = await new Formbase().methods.loadOptions.getDocumentsKeys.call(ctx as never)
+    const keys = await new Formstep().methods.loadOptions.getDocumentsKeys.call(ctx as never)
 
     expect(keys).toEqual([{ name: 'Your contract (contract)', value: 'contract' }])
   })
 })
 
-describe('Formbase.methods.listSearch', () => {
+describe('Formstep.methods.listSearch', () => {
   const workspace = { items: [{ id: 'ws_1', name: 'Acme' }], hasMore: false }
 
   it('lists every form, marking an unpublished one', async () => {
@@ -200,7 +200,7 @@ describe('Formbase.methods.listSearch', () => {
         : { items: [{ id: 'f1', name: 'Onboarding', isPublished: true }, { id: 'f2', name: 'Draft', isPublished: false }], hasMore: false }
     )
 
-    const result = await new Formbase().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never)
+    const result = await new Formstep().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never)
 
     expect(result).toEqual({
       results: [
@@ -213,12 +213,12 @@ describe('Formbase.methods.listSearch', () => {
   it('searches forms by name with the typed filter', async () => {
     respond((method) => (method === 'workspaces.list' ? workspace : { items: [{ id: 'f1', name: 'Onboarding', isPublished: true }], hasMore: false }))
 
-    await new Formbase().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never, 'onboard')
+    await new Formstep().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never, 'onboard')
 
     expect(mockedRequest).toHaveBeenCalledWith(expect.anything(), 'forms.list', { workspaceId: 'ws_1', query: 'onboard', limit: 100 })
   })
 
-  it('pages through the newest requests with the formbase cursor', async () => {
+  it('pages through the newest requests with the Formstep cursor', async () => {
     respond((method, params) => {
       if (method === 'workspaces.list') return workspace
       if (params.cursor === undefined) {
@@ -230,7 +230,7 @@ describe('Formbase.methods.listSearch', () => {
       }
       return { items: [{ id: 'req_2', status: 'completed', externalId: null, recipient: { email: null, name: null } }], hasMore: false, nextCursor: null }
     })
-    const search = new Formbase().methods.listSearch.searchRequests
+    const search = new Formstep().methods.listSearch.searchRequests
 
     const first = await search.call(makeLoadOptionsContext() as never)
     const second = await search.call(makeLoadOptionsContext() as never, undefined, first.paginationToken)
@@ -241,7 +241,7 @@ describe('Formbase.methods.listSearch', () => {
   })
 })
 
-describe('Formbase.execute: create with the Fields mapper', () => {
+describe('Formstep.execute: create with the Fields mapper', () => {
   const CREATE = { resource: 'request', operation: 'create', formId: locator('form_1') }
 
   it('splits mapped values into prefill and context by the live field list', async () => {
@@ -300,7 +300,7 @@ describe('Formbase.execute: create with the Fields mapper', () => {
     expect(sentParams('requests.create').map((params) => params.prefill)).toEqual([{ start_date: '2026-03-04' }, { start_date: '2026-05-06' }])
   })
 
-  it('sends a value under a key the form no longer has, so formbase names it in its error', async () => {
+  it('sends a value under a key the form no longer has, so Formstep names it in its error', async () => {
     respondWithForm()
 
     await run([{ ...CREATE, fields: { mappingMode: 'defineBelow', value: { renamed_field: 'x' } } }])
@@ -330,14 +330,14 @@ describe('Formbase.execute: create with the Fields mapper', () => {
   })
 })
 
-describe('Formbase.execute: operations', () => {
+describe('Formstep.execute: operations', () => {
   it('refuses an operation it does not have, even one named like an object method', async () => {
     await expect(run([{ resource: 'request', operation: 'toString' }])).rejects.toThrow('The operation "toString" is not supported')
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 })
 
-describe('Formbase.execute: a request picked with the resource locator', () => {
+describe('Formstep.execute: a request picked with the resource locator', () => {
   it.each([
     ['get', 'requests.get'],
     ['remind', 'requests.remind'],

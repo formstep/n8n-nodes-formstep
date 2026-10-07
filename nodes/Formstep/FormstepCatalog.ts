@@ -1,6 +1,6 @@
 import { NodeApiError, NodeOperationError } from 'n8n-workflow'
 
-import { formbaseApiRequest, type FormbaseRpcContext } from './GenericFunctions'
+import { formstepApiRequest, type FormstepRpcContext } from './GenericFunctions'
 
 export interface FormSummary {
   id: string
@@ -51,12 +51,12 @@ const PAGE_SIZE = 100
 const REQUEST_PAGE_SIZE = 25
 
 /**
- * Every item of a cursor-paged list method, up to `max`. formbase answers
+ * Every item of a cursor-paged list method, up to `max`. Formstep answers
  * `hasMore` with a `nextCursor`; a page that claims more without one is a
  * broken page, not the end of the list.
  */
 export async function collectPages<T>(
-  context: FormbaseRpcContext,
+  context: FormstepRpcContext,
   method: string,
   params: Record<string, unknown>,
   max = Number.POSITIVE_INFINITY
@@ -64,14 +64,14 @@ export async function collectPages<T>(
   const items: T[] = []
   let cursor: string | undefined
   do {
-    const page = await formbaseApiRequest<ListResponse<T>>(context, method, {
+    const page = await formstepApiRequest<ListResponse<T>>(context, method, {
       ...params,
       limit: Math.min(PAGE_SIZE, max - items.length),
       ...(cursor ? { cursor } : {}),
     })
     items.push(...page.items)
     if (page.hasMore && !page.nextCursor) {
-      throw new NodeApiError(context.getNode(), { message: `formbase returned an incomplete ${method} page` })
+      throw new NodeApiError(context.getNode(), { message: `Formstep returned an incomplete ${method} page` })
     }
     cursor = page.hasMore ? (page.nextCursor ?? undefined) : undefined
   } while (cursor && items.length < max)
@@ -80,33 +80,33 @@ export async function collectPages<T>(
 }
 
 /**
- * The connected workspace. A formbase OAuth token is scoped to the one
+ * The connected workspace. A Formstep OAuth token is scoped to the one
  * workspace the user picked on the consent screen, so `workspaces.list`
  * answers with exactly that workspace.
  */
-export async function readWorkspace(context: FormbaseRpcContext): Promise<WorkspaceSummary> {
-  const workspaces = await formbaseApiRequest<ListResponse<WorkspaceSummary>>(context, 'workspaces.list')
+export async function readWorkspace(context: FormstepRpcContext): Promise<WorkspaceSummary> {
+  const workspaces = await formstepApiRequest<ListResponse<WorkspaceSummary>>(context, 'workspaces.list')
   const workspace = workspaces.items[0]
   if (!workspace) {
-    throw new NodeOperationError(context.getNode(), 'This formbase credential has no workspace. Reconnect it and pick one.')
+    throw new NodeOperationError(context.getNode(), 'This Formstep credential has no workspace. Reconnect it and pick one.')
   }
   return workspace
 }
 
 /** Every form of the connected workspace, across every `forms.list` page. */
-export async function listForms(context: FormbaseRpcContext): Promise<FormSummary[]> {
+export async function listForms(context: FormstepRpcContext): Promise<FormSummary[]> {
   const workspace = await readWorkspace(context)
   return collectPages<FormSummary>(context, 'forms.list', { workspaceId: workspace.id })
 }
 
 /**
  * The forms of the connected workspace whose name fuzzily matches `query`, up
- * to one page. formbase answers a name search with one capped page and no
+ * to one page. Formstep answers a name search with one capped page and no
  * cursor, so a picker asks the user to type more instead of paging.
  */
-export async function searchFormsByName(context: FormbaseRpcContext, query: string): Promise<FormSummary[]> {
+export async function searchFormsByName(context: FormstepRpcContext, query: string): Promise<FormSummary[]> {
   const workspace = await readWorkspace(context)
-  const page = await formbaseApiRequest<ListResponse<FormSummary>>(context, 'forms.list', {
+  const page = await formstepApiRequest<ListResponse<FormSummary>>(context, 'forms.list', {
     workspaceId: workspace.id,
     query,
     limit: PAGE_SIZE,
@@ -116,11 +116,11 @@ export async function searchFormsByName(context: FormbaseRpcContext, query: stri
 
 /** One page of the workspace's requests, newest first, from `cursor` on. */
 export async function listRequestsPage(
-  context: FormbaseRpcContext,
+  context: FormstepRpcContext,
   cursor: string | undefined
 ): Promise<ListResponse<RequestSummary>> {
   const workspace = await readWorkspace(context)
-  return formbaseApiRequest<ListResponse<RequestSummary>>(context, 'requests.list', {
+  return formstepApiRequest<ListResponse<RequestSummary>>(context, 'requests.list', {
     workspaceId: workspace.id,
     limit: REQUEST_PAGE_SIZE,
     ...(cursor ? { cursor } : {}),
@@ -128,7 +128,7 @@ export async function listRequestsPage(
 }
 
 /** The keyed fields of a form's current published version; empty while the form is unpublished. */
-export async function listFields(context: FormbaseRpcContext, formId: string): Promise<FormField[]> {
-  const fields = await formbaseApiRequest<ListResponse<FormField>>(context, 'fields.list', { formId })
+export async function listFields(context: FormstepRpcContext, formId: string): Promise<FormField[]> {
+  const fields = await formstepApiRequest<ListResponse<FormField>>(context, 'fields.list', { formId })
   return fields.items
 }

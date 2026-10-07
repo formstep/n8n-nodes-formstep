@@ -14,16 +14,16 @@ function getRawBody(request: ReturnType<IWebhookFunctions['getRequestObject']>):
   return undefined
 }
 
-export function createFormbaseWebhookSecret(): string {
+export function createFormstepWebhookSecret(): string {
   return `whsec_${randomBytes(32).toString('hex')}`
 }
 
-export function verifyFormbaseWebhookSignature(context: IWebhookFunctions): boolean {
+export function verifyFormstepWebhookSignature(context: IWebhookFunctions): boolean {
   const webhookData = context.getWorkflowStaticData('node')
   const secret = webhookData.webhookSecret
   if (typeof secret !== 'string' || secret.length === 0) return false
 
-  const signatureHeader = context.getHeaderData()['x-formbase-signature']
+  const signatureHeader = context.getHeaderData()['x-formstep-signature']
   if (typeof signatureHeader !== 'string') return false
 
   const match = SIGNATURE_HEADER_PATTERN.exec(signatureHeader)

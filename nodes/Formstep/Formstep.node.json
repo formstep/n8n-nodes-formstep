@@ -1,17 +1,17 @@
 {
-  "node": "n8n-nodes-formbase",
+  "node": "n8n-nodes-formstep",
   "nodeVersion": "1.0",
   "codexVersion": "1.0",
   "categories": ["Marketing & Content", "Productivity"],
   "resources": {
     "credentialDocumentation": [
       {
-        "url": "https://docs.formbase.so/guides/n8n/connect/"
+        "url": "https://docs.formstep.io/guides/n8n/connect/"
       }
     ],
     "primaryDocumentation": [
       {
-        "url": "https://docs.formbase.so/guides/n8n/send-a-request/"
+        "url": "https://docs.formstep.io/guides/n8n/send-a-request/"
       }
     ]
   }

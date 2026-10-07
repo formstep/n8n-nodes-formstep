@@ -60,12 +60,12 @@ export function signEvent(secret: string, timestampSeconds: number, rawBody: str
 }
 
 /**
- * An in-process formbase external API: enough of `POST /api/v1` for the node to
+ * An in-process Formstep external API: enough of `POST /api/v1` for the node to
  * run its whole lifecycle over real HTTP. It validates like the server (bearer
  * token, webhooks.create rules), stores subscriptions, and signs deliveries with
  * the secret each subscription registered.
  */
-export class FakeFormbase {
+export class FakeFormstep {
   readonly workspace = { id: 'ws_1', name: 'Acme' }
   readonly forms: FakeForm[]
   readonly fields: Record<string, unknown[]>
@@ -240,7 +240,7 @@ export class FakeFormbase {
       status: 'pending',
       formId: form.id,
       params,
-      url: `https://forms.formbase.so/r/rq_${id}`,
+      url: `https://forms.formstep.io/r/rq_${id}`,
       externalId: params.externalId === undefined ? null : String(params.externalId),
       isTest: params.test === true,
       remindersSent: 0,
@@ -340,7 +340,7 @@ export class FakeFormbase {
     }
   }
 
-  /** What formbase POSTs to a subscription's target URL: the signed raw body and its headers. */
+  /** What Formstep POSTs to a subscription's target URL: the signed raw body and its headers. */
   deliver(subscriptionId: string, event: Record<string, unknown>, options: { timestamp?: number } = {}) {
     const subscription = this.subscriptions.get(subscriptionId)
     if (!subscription?.signingSecret) throw new Error(`No signed subscription ${subscriptionId}`)
@@ -349,9 +349,9 @@ export class FakeFormbase {
     return {
       headers: {
         'content-type': 'application/json',
-        'x-formbase-event-id': String(event.id),
-        'x-formbase-event-type': String(event.type),
-        'x-formbase-signature': signEvent(subscription.signingSecret, timestamp, content),
+        'x-formstep-event-id': String(event.id),
+        'x-formstep-event-type': String(event.type),
+        'x-formstep-signature': signEvent(subscription.signingSecret, timestamp, content),
       },
       content,
     }
@@ -375,7 +375,7 @@ function conflict(reason: string): RpcResult {
   return { status: 409, error: { code: 'CONFLICT', message: reason } }
 }
 
-/** The summary's recipient, `{ email, name }` with `null` for what the create body left out, as formbase answers it. */
+/** The summary's recipient, `{ email, name }` with `null` for what the create body left out, as Formstep answers it. */
 function recipientOf(params: Record<string, unknown>): { email: string | null; name: string | null } {
   const recipient = (params.recipient ?? {}) as { email?: string; name?: string }
   return { email: recipient.email ?? null, name: recipient.name ?? null }
@@ -400,7 +400,7 @@ function requestSummary(request: StoredRequest) {
   }
 }
 
-const NODE = { name: 'formbase Trigger', type: 'formbaseTrigger', typeVersion: 1 }
+const NODE = { name: 'Formstep Trigger', type: 'formstepTrigger', typeVersion: 1 }
 
 /**
  * The n8n helpers the node touches, backed by real HTTP against `baseUrl`.

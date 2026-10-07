@@ -1,16 +1,16 @@
 {
-  "name": "Handle formbase submission",
+  "name": "Handle Formstep submission",
   "nodes": [
     {
       "parameters": {
         "formId": "",
         "event": "submission_created"
       },
-      "type": "n8n-nodes-formbase.formbaseTrigger",
+      "type": "n8n-nodes-formstep.formstepTrigger",
       "typeVersion": 1,
       "position": [0, 0],
       "id": "16e911f0-6385-4acc-8286-1afb15eb035c",
-      "name": "formbase Trigger"
+      "name": "Formstep Trigger"
     },
     {
       "parameters": {
@@ -59,7 +59,7 @@
   ],
   "pinData": {},
   "connections": {
-    "formbase Trigger": {
+    "Formstep Trigger": {
       "main": [
         [
           {

@@ -47,7 +47,7 @@
           "metadata": "={{ JSON.stringify({ runId: $execution.id }) }}"
         }
       },
-      "type": "n8n-nodes-formbase.formbase",
+      "type": "n8n-nodes-formstep.formstep",
       "typeVersion": 2,
       "position": [240, 0],
       "id": "b7d2f3a4-8c1e-4a5b-9d6f-0e2c4a6b8d21",

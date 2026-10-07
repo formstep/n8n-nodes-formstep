@@ -10,17 +10,17 @@ import type {
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 
 import {
-  FORMBASE_IDLE_WINDOW_OPTIONS,
-  FORMBASE_CREDENTIAL_TYPE,
-  FORMBASE_WEBHOOK_EVENTS,
-  isFormbaseIdleWindow,
-  type FormbaseIdleWindow,
-  type FormbaseWebhookEvent,
+  FORMSTEP_IDLE_WINDOW_OPTIONS,
+  FORMSTEP_CREDENTIAL_TYPE,
+  FORMSTEP_WEBHOOK_EVENTS,
+  isFormstepIdleWindow,
+  type FormstepIdleWindow,
+  type FormstepWebhookEvent,
 } from './constants'
-import type { ListResponse } from './FormbaseCatalog'
-import { getForms } from './FormbaseMethods'
-import { createFormbaseWebhookSecret, verifyFormbaseWebhookSignature } from './FormbaseWebhookSignature'
-import { formbaseApiRequest } from './GenericFunctions'
+import type { ListResponse } from './FormstepCatalog'
+import { getForms } from './FormstepMethods'
+import { createFormstepWebhookSecret, verifyFormstepWebhookSignature } from './FormstepWebhookSignature'
+import { formstepApiRequest } from './GenericFunctions'
 import { isNodeError } from './NodeErrors'
 
 /**
@@ -30,36 +30,36 @@ import { isNodeError } from './NodeErrors'
 const EVENT_OPTIONS: INodePropertyOptions[] = [
   {
     name: 'Public Link Submission Created',
-    value: FORMBASE_WEBHOOK_EVENTS.submissionCreated,
+    value: FORMSTEP_WEBHOOK_EVENTS.submissionCreated,
     description:
       'Runs when a respondent submits the selected form through its public link (event type submission.completed). An edit after submit runs Public Link Submission Updated; a completed request runs Request Completed.',
   },
   {
     name: 'Public Link Submission Updated',
-    value: FORMBASE_WEBHOOK_EVENTS.submissionUpdated,
+    value: FORMSTEP_WEBHOOK_EVENTS.submissionUpdated,
     description:
       'Runs when a respondent edits a public-link submission they already sent (event type submission.updated). The form must allow editing after submit.',
   },
   {
     name: 'Public Link Submission Abandoned',
-    value: FORMBASE_WEBHOOK_EVENTS.submissionAbandoned,
+    value: FORMSTEP_WEBHOOK_EVENTS.submissionAbandoned,
     description:
       'Runs when a respondent leaves the selected form, opened through its public link, without submitting it. Needs partial-submission tracking on the workspace.',
   },
   {
     name: 'Request Completed',
-    value: FORMBASE_WEBHOOK_EVENTS.requestCompleted,
+    value: FORMSTEP_WEBHOOK_EVENTS.requestCompleted,
     description:
       'Runs when a recipient completes a request for the selected form, with the answers and the outcome (event type request.completed)',
   },
   {
     name: 'Request Expired',
-    value: FORMBASE_WEBHOOK_EVENTS.requestExpired,
+    value: FORMSTEP_WEBHOOK_EVENTS.requestExpired,
     description: 'Runs when a request for the selected form reaches its expiry without being completed',
   },
   {
     name: 'Request Canceled',
-    value: FORMBASE_WEBHOOK_EVENTS.requestCanceled,
+    value: FORMSTEP_WEBHOOK_EVENTS.requestCanceled,
     description: 'Runs when a request for the selected form is canceled, with the reason when one was given',
   },
 ].map((option) => ({ ...option, action: `On ${option.name.toLowerCase()}` }))
@@ -73,16 +73,16 @@ interface WebhookSubscription {
   subscriptionId: string
   targetUrl: string
   provider: string
-  eventType: FormbaseWebhookEvent
-  idleWindow?: FormbaseIdleWindow
+  eventType: FormstepWebhookEvent
+  idleWindow?: FormstepIdleWindow
 }
 
-/** What this node wants registered with formbase, read from its parameters. */
+/** What this node wants registered with Formstep, read from its parameters. */
 interface Registration {
   webhookUrl: string
   formId: string
-  eventType: FormbaseWebhookEvent
-  idleWindow?: FormbaseIdleWindow
+  eventType: FormstepWebhookEvent
+  idleWindow?: FormstepIdleWindow
 }
 
 /** The registration the node's parameters describe, or null while the node is not configured. */
@@ -91,12 +91,12 @@ function readRegistration(context: IHookFunctions): Registration | null {
   const formId = context.getNodeParameter('formId') as string
   if (!webhookUrl || !formId) return null
 
-  const eventType = context.getNodeParameter('event') as FormbaseWebhookEvent
-  if (eventType !== FORMBASE_WEBHOOK_EVENTS.submissionAbandoned) return { webhookUrl, formId, eventType }
+  const eventType = context.getNodeParameter('event') as FormstepWebhookEvent
+  if (eventType !== FORMSTEP_WEBHOOK_EVENTS.submissionAbandoned) return { webhookUrl, formId, eventType }
 
   const idleWindow = context.getNodeParameter('idleWindow')
-  if (!isFormbaseIdleWindow(idleWindow)) {
-    const allowed = FORMBASE_IDLE_WINDOW_OPTIONS.map((option) => option.value).join(', ')
+  if (!isFormstepIdleWindow(idleWindow)) {
+    const allowed = FORMSTEP_IDLE_WINDOW_OPTIONS.map((option) => option.value).join(', ')
     throw new NodeOperationError(context.getNode(), `Idle window must be one of: ${allowed}`)
   }
   return { webhookUrl, formId, eventType, idleWindow }
@@ -121,24 +121,24 @@ function clearWebhookRegistration(webhookData: IDataObject): void {
   delete webhookData.webhookSecret
 }
 
-export class FormbaseTrigger implements INodeType {
+export class FormstepTrigger implements INodeType {
   description: INodeTypeDescription = {
-    displayName: 'formbase Trigger',
-    name: 'formbaseTrigger',
-    icon: { light: 'file:formbase-logo.svg', dark: 'file:formbase-logo.dark.svg' },
+    displayName: 'Formstep Trigger',
+    name: 'formstepTrigger',
+    icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['trigger'],
     version: 1,
     subtitle: EVENT_SUBTITLE,
     description:
-      'Starts the workflow when a formbase request is completed, expires or is canceled, or when a respondent submits a form through its public link',
+      'Starts the workflow when a Formstep request is completed, expires or is canceled, or when a respondent submits a form through its public link',
     defaults: {
-      name: 'formbase Trigger',
+      name: 'Formstep Trigger',
     },
     inputs: [],
     outputs: [NodeConnectionTypes.Main],
     credentials: [
       {
-        name: FORMBASE_CREDENTIAL_TYPE,
+        name: FORMSTEP_CREDENTIAL_TYPE,
         required: true,
       },
     ],
@@ -147,18 +147,18 @@ export class FormbaseTrigger implements INodeType {
         name: 'default',
         httpMethod: 'POST',
         responseMode: 'onReceived',
-        path: 'formbase',
+        path: 'formstep',
       },
     ],
     triggerPanel: {
-      header: 'Listening for formbase events',
+      header: 'Listening for Formstep events',
       executionsHelp: {
         inactive:
           'While building the workflow, click <em>Execute step</em> and submit the form within two minutes, or complete a request. Expired, canceled and abandoned events arrive later: publish the workflow and check Executions.',
         active:
           'Events for the selected form trigger this workflow. The webhook stays registered while the workflow is published.',
       },
-      activationHint: 'Publish the workflow to register the webhook with formbase. Unpublishing removes it.',
+      activationHint: 'Publish the workflow to register the webhook with Formstep. Unpublishing removes it.',
     },
     properties: [
       {
@@ -187,10 +187,10 @@ export class FormbaseTrigger implements INodeType {
         type: 'options',
         displayOptions: {
           show: {
-            event: [FORMBASE_WEBHOOK_EVENTS.submissionAbandoned],
+            event: [FORMSTEP_WEBHOOK_EVENTS.submissionAbandoned],
           },
         },
-        options: [...FORMBASE_IDLE_WINDOW_OPTIONS],
+        options: [...FORMSTEP_IDLE_WINDOW_OPTIONS],
         default: '12h',
         required: true,
         description:
@@ -204,7 +204,7 @@ export class FormbaseTrigger implements INodeType {
   webhookMethods = {
     default: {
       /**
-       * True when formbase still holds the subscription this node registered.
+       * True when Formstep still holds the subscription this node registered.
        * Any other subscription for this node's URL and event — one with no
        * stored secret, a different idle window, or a stale duplicate — is
        * removed rather than left as a second, unverifiable delivery path.
@@ -214,7 +214,7 @@ export class FormbaseTrigger implements INodeType {
         if (!registration) return false
 
         const webhookData = this.getWorkflowStaticData('node')
-        const { items } = await formbaseApiRequest<ListResponse<WebhookSubscription>>(this, 'webhooks.list', {
+        const { items } = await formstepApiRequest<ListResponse<WebhookSubscription>>(this, 'webhooks.list', {
           formId: registration.formId,
         })
 
@@ -225,7 +225,7 @@ export class FormbaseTrigger implements INodeType {
             current = true
             continue
           }
-          await formbaseApiRequest(this, 'webhooks.delete', { subscriptionId: subscription.subscriptionId })
+          await formstepApiRequest(this, 'webhooks.delete', { subscriptionId: subscription.subscriptionId })
         }
 
         if (!current) clearWebhookRegistration(webhookData)
@@ -236,8 +236,8 @@ export class FormbaseTrigger implements INodeType {
         const registration = readRegistration(this)
         if (!registration) return false
 
-        const webhookSecret = createFormbaseWebhookSecret()
-        const created = await formbaseApiRequest<{ subscriptionId: string }>(this, 'webhooks.create', {
+        const webhookSecret = createFormstepWebhookSecret()
+        const created = await formstepApiRequest<{ subscriptionId: string }>(this, 'webhooks.create', {
           formId: registration.formId,
           targetUrl: registration.webhookUrl,
           provider: 'n8n',
@@ -261,9 +261,9 @@ export class FormbaseTrigger implements INodeType {
         }
 
         try {
-          await formbaseApiRequest(this, 'webhooks.delete', { subscriptionId })
+          await formstepApiRequest(this, 'webhooks.delete', { subscriptionId })
         } catch (error: unknown) {
-          // Already gone on the formbase side is the outcome we wanted.
+          // Already gone on the Formstep side is the outcome we wanted.
           if (!isNodeError(error) || error.name !== 'NodeApiError' || error.httpCode !== '404') return false
         }
         clearWebhookRegistration(webhookData)
@@ -272,9 +272,9 @@ export class FormbaseTrigger implements INodeType {
     },
   }
 
-  /** One item per delivery: the formbase event envelope, untouched, once its signature checks out. */
+  /** One item per delivery: the Formstep event envelope, untouched, once its signature checks out. */
   async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-    if (!verifyFormbaseWebhookSignature(this)) {
+    if (!verifyFormstepWebhookSignature(this)) {
       this.getResponseObject().status(401).send('Unauthorized').end()
       return { noWebhookResponse: true }
     }
