@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.11.1 - 2026-10-08
+
+The first version published from GitHub Actions through npm trusted publishing, with provenance. 0.11.0 was published by hand, because npm accepts a trusted publisher only for a package that already exists. No code change: workflows keep working unchanged.
+
 ## 0.11.0 - 2026-10-08
 
 formbase is now Formstep, and this package is `n8n-nodes-formstep`. It is a new package on npm, not a new version of `n8n-nodes-formbase`, which is removed from npm. Earlier entries below describe releases of `n8n-nodes-formbase` under the new name.
