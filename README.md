@@ -4,8 +4,8 @@ Community nodes for [n8n](https://n8n.io) that create [Formstep](https://formste
 
 ## Features
 
-- **Formstep** node: create a request for a published form, or for a new form built from blocks in the same call, and a recipient, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
-- No form yet: set **Form Source** to **New Form** and send the form's blocks as JSON. Formstep builds the form, publishes it and creates the request in one step, and the same blocks again reuse the form.
+- **Formstep** node: create a request that asks one recipient to complete a published form, or a new form built from blocks in the same call, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
+- No form yet: set **Form Source** to **New Form** and send the form's blocks as JSON, with its logo, cover, theme and translations. Formstep builds the form, publishes it and creates the request in one step, and the same definition again reuses the form.
 - Map a request's fields like any n8n mapping: pick the form, and **Fields** lists its questions with a dropdown for each choice, a number or date input where Formstep expects one, and the form's context fields. **Map Automatically** sends an input item's keys that match the form's field keys.
 - Search forms by name, and pick a request from the workspace's newest ones, or pass an ID.
 - Pause a workflow until the recipient answers: **Wait for the Outcome** points the request's callback at n8n's Wait node, so the workflow resumes with the completed, expired or canceled request as its input.
@@ -102,7 +102,13 @@ When the questions depend on the case, or nobody has built the form yet, set **F
 3. **Prefill** and **Context**: JSON objects keyed by block key. A choice question takes option keys derived from the labels, so `Self-employed` becomes `self_employed`. **Read-Only Field Keys** lists prefilled keys the recipient may not change.
 4. **Form Options**: the form's brand and behaviour, sent with every item. **Logo** (`{ "type": "icon", "name": "HeartIcon" }` or `{ "type": "image", "url": "https://…/logo.png" }`), **Cover** (`{ "type": "color", "color": "#0f4c81" }` or an image with `offsetY`), **Emoji**, **Form Language**, **Theme** (`{ "light": "solarized-light", "dark": "dracula" }`), **Settings**, and **Translations** (`{ "de": { "text as written": "Übersetzung" } }`, every string of the form). Image URLs must be public JPEG, PNG or WebP; Formstep keeps its own copy.
 
-The response adds `form`: its `id`, `name`, whether it was `reused`, and `fields`, the keys its answers come back under. The same definition again reuses the form (`reused: true`), so put the customer's name or amount in **Prefill** and **Context**, never in the name, a block or the brand, or every item makes a new form. A payment or booking block needs Stripe or Cal.com connected to the workspace; when it is not, the error carries the `connectUrl` a person opens once. A new form takes no **Documents**, since it has no ID to upload them against until the call that creates it. Recipient, delivery, reminders, expiry, External ID, metadata, test mode and **Wait for the Outcome** work as for a published form.
+In text, `{{key}}` shows the value of a hidden field, so a `first_name` passed in **Context** greets every recipient by name from one form.
+
+The response adds `form`: its `id`, `name`, whether it was `reused`, and `fields`, the keys its answers come back under. When the call made a new form although an open one has the same questions, `form.similarForm` names it: usually a changed name or title caused it. The same definition again reuses the form (`reused: true`), so put the customer's name or amount in **Prefill** and **Context**, never in the name, a block or the brand, or every item makes a new form. A payment or booking block needs Stripe or Cal.com connected to the workspace; when it is not, the error carries the `connectUrl` a person opens once. A new form takes no **Documents**, since it has no ID to upload them against until the call that creates it. Recipient, delivery, reminders, expiry, External ID, metadata, test mode and **Wait for the Outcome** work as for a published form.
+
+A workspace makes at most 300 new forms this way a day; past that, a call that would make a new form fails with `RATE_LIMITED`, while calls that reuse a form keep working. A refused definition fails with `VALIDATION_ERROR`, and the error description names the reason and the block: `INLINE_FORM_INVALID` (a block or form option fails its schema), `INLINE_FORM_DUPLICATE_KEY`, `INLINE_FORM_UNKNOWN_KEY` (a logic rule or amount names a key no block has), `INLINE_FORM_CONNECTION_MISSING` (with the `connectUrl`), `INLINE_FORM_EVENT_TYPE_NOT_FOUND`, `INLINE_FORM_IMAGE_UNREACHABLE`, `INLINE_FORM_TRANSLATION_MISSING` or `INLINE_FORM_PUBLISH_ISSUES`. Nothing is created when a call is refused.
+
+[`examples/formstep-request-new-form.json`](examples/formstep-request-new-form.json) builds a mortgage document request this way: it greets the customer by name from **Context**, prefills a choice, asks for three payslips, waits for the outcome and reads the answers.
 
 **Get**, **Remind**, **Cancel** and **Replay Callback** take the **Request** by ID, usually `{{ $json.id }}` from a Create node, or from a list of the workspace's newest requests, labelled by recipient, status and External ID.
 
@@ -119,7 +125,7 @@ A request is answered minutes or days later. To pause the workflow until then:
 3. When the request is completed, expires or is canceled, Formstep posts the event envelope to that URL and the execution resumes. The Wait node emits the delivery as one item with the envelope under `$json.body`.
 4. Branch on `{{ $json.body.type }}` (`request.completed`, `request.expired` or `request.canceled`) and read the answers from `{{ $json.body.data.answers.<field_key> }}`, the outcome from `{{ $json.body.data.request.outcome }}`, and the request ID from `{{ $json.body.data.request.id }}`.
 
-[`examples/formstep-request-wait.json`](examples/formstep-request-wait.json) shows the whole pattern: Formstep **Create** with **Wait for the Outcome** → **Wait** → **Switch** on the event type → **Set** reading the answers.
+[`examples/formstep-request-wait.json`](examples/formstep-request-wait.json) shows the whole pattern: Formstep **Create** with **Wait for the Outcome** → **Wait** → **Switch** on the event type → **Set** reading the answers. [`examples/formstep-request-new-form.json`](examples/formstep-request-new-form.json) is the same pattern with a form built in the request.
 
 A resume URL only exists once the execution runs, so the test run of a Create node in the editor waits for a real answer just like a production run. A request expires after 30 days unless you set **Expires At**, and expiry resumes the workflow with `request.expired`; set **Expires At** to end the wait sooner. If n8n was unreachable when the callback fired, run **Replay Callback** for the request, or read it with **Get**: the resume URL of a finished execution is gone, so a replay only helps while the execution is still waiting.
 
@@ -156,6 +162,7 @@ One channel, one event: **Public Link Submission Created** runs for public-link 
 ## Example workflows
 
 - [`examples/formstep-request-wait.json`](examples/formstep-request-wait.json): a Formstep **Create** node with **Wait for the Outcome**, a **Wait** node, a **Switch** on `request.completed` / `request.expired` / `request.canceled`, and a **Set** node that reads the request ID, outcome and an answer. Connect the credential, pick a form with a `company_name` field (or change the Fields mapping and the Set node), and run it.
+- [`examples/formstep-request-new-form.json`](examples/formstep-request-new-form.json): the same wait pattern with **Form Source** set to **New Form**. A **Set** node holds the customer (first name, email, case ID, employment), the Create node builds a form from seven blocks (a header and paragraph that greet the customer with `{{first_name}}`, two hidden fields, a choice, a file upload for three payslips, an optional note) with an emoji, a cover color and a theme, passes the name and case ID as **Context** and the employment as **Prefill**, and the last **Set** node reads `case_id`, `employment`, `payslips` and `notes` plus the new form's ID. It needs no Stripe or Cal.com connection. Connect the credential, change the email in **Customer** to an inbox you can open (or turn on **Test Mode**), and run it; a second run reuses the form the first one made.
 - [`examples/formstep-submission.json`](examples/formstep-submission.json): a **Formstep Trigger** that maps event ID, event type, submission ID, respondent email, and form name into stable output fields. Connect the credential, select a form, then publish the workflow.
 
 ## Output
@@ -292,7 +299,7 @@ npm run build
 npm run lint
 ```
 
-The Formstep node lives in `nodes/Formstep/`: `Formstep.node.ts` wires the node together, `actions/` holds its parameters (`RequestDescription.ts`), what each operation calls (`RequestOperations.ts`) and how Create builds its body (`RequestCreate.ts`), `FormFields.ts` maps `fields.list` onto the Fields mapper, and `FormstepMethods.ts` holds the pickers both nodes share.
+The Formstep node lives in `nodes/Formstep/`: `Formstep.node.ts` wires the node together, `actions/` holds its parameters (`RequestDescription.ts`), what each operation calls (`RequestOperations.ts`) and how Create builds its body for a published or a new form (`RequestCreate.ts`), `FormFields.ts` maps `fields.list` onto the Fields mapper, and `FormstepMethods.ts` holds the pickers both nodes share.
 
 `npm test` runs unit tests plus lifecycle tests that drive both nodes against an in-process Formstep API over real HTTP (`test/fakeFormstep.mts`). `npm run dev` starts n8n with the node loaded and rebuilds on changes. Compiled package files are written to `dist/`. Run `npm pack --dry-run` before publishing to inspect package contents.
 

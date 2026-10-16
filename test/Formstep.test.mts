@@ -169,6 +169,24 @@ describe('Formstep node description', () => {
     expect(wait?.parameters).toMatchObject({ resume: 'webhook' })
     expect(workflow.connections[create!.name]?.main[0]?.[0]?.node).toBe(wait!.name)
   })
+
+  it('ships an example workflow that builds the form in the request and waits for the outcome', () => {
+    const workflow = JSON.parse(readFileSync(new URL('../examples/formstep-request-new-form.json', import.meta.url), 'utf8')) as {
+      nodes: Array<{ name: string; type: string; typeVersion: number; parameters: Record<string, unknown> }>
+      connections: Record<string, { main: Array<Array<{ node: string }>> }>
+      active: boolean
+    }
+
+    expect(workflow.active).toBe(false)
+    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
+    const wait = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.wait')
+    expect(create).toMatchObject({ typeVersion: 2, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
+    expect(create?.parameters.formId).toBeUndefined()
+    const blocks = JSON.parse(create?.parameters.formBlocks as string) as Array<{ type: string; key?: string }>
+    expect(blocks.filter((block) => block.type === 'hiddenField').map((block) => block.key)).toEqual(['first_name', 'case_id'])
+    expect(blocks.some((block) => block.type === 'payment' || block.type === 'scheduleAppointment')).toBe(false)
+    expect(workflow.connections[create!.name]?.main[0]?.[0]?.node).toBe(wait!.name)
+  })
 })
 describe('Formstep.methods.loadOptions', () => {
   const fields = [
