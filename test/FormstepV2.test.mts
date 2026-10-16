@@ -370,7 +370,15 @@ describe('Formstep.execute: create with a new form', () => {
         inlinePrefill: '{ "employment": "self_employed" }',
         inlineContext: { first_name: 'Ada' },
         inlineReadonly: 'employment, ',
-        formOptions: { baseline: 'form_brand', language: 'de', settings: '{ "showBranding": false }', theme: '{}' },
+        formOptions: {
+          language: 'de',
+          logo: '{ "type": "icon", "name": "HeartIcon" }',
+          cover: { type: 'color', color: '#0f4c81' },
+          emoji: '🏦',
+          settings: '{ "showBranding": false }',
+          theme: '{}',
+          translations: '{ "en": { "Employment": "Employment" } }',
+        },
         additionalFields: { externalId: 'case-7' },
       },
     ])
@@ -378,7 +386,16 @@ describe('Formstep.execute: create with a new form', () => {
     expect(sentParams('fields.list')).toEqual([])
     expect(sentParams('requests.create')).toEqual([
       {
-        form: { name: 'Your application', blocks: BLOCKS, baseline: 'form_brand', language: 'de', settings: { showBranding: false } },
+        form: {
+          name: 'Your application',
+          blocks: BLOCKS,
+          language: 'de',
+          logo: { type: 'icon', name: 'HeartIcon' },
+          cover: { type: 'color', color: '#0f4c81' },
+          emoji: '🏦',
+          settings: { showBranding: false },
+          translations: { en: { Employment: 'Employment' } },
+        },
         prefill: { employment: 'self_employed' },
         context: { first_name: 'Ada' },
         readonly: ['employment'],
@@ -403,6 +420,7 @@ describe('Formstep.execute: create with a new form', () => {
     ['blocks that are not an array', { formBlocks: '{ "type": "text" }' }, 'Form Blocks must be a JSON array of blocks'],
     ['a prefill that is not an object', { inlinePrefill: '["a"]' }, 'Prefill must be a JSON object'],
     ['settings that are not an object', { formOptions: { settings: '[]' } }, 'Settings must be a JSON object'],
+    ['a logo that is not an object', { formOptions: { logo: '"HeartIcon"' } }, 'Logo must be a JSON object'],
   ])('refuses %s before calling Formstep', async (_case, parameters, message) => {
     respond(() => ({ id: 'req_1' }))
 

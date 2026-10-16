@@ -246,13 +246,20 @@ const inlineFormProperties: INodeProperties[] = [
     default: {},
     options: [
       {
-        displayName: 'Baseline Form Name or ID',
-        name: 'baseline',
-        type: 'options',
-        typeOptions: { loadOptionsMethod: 'getForms' },
+        displayName: 'Cover',
+        name: 'cover',
+        type: 'json',
         default: '',
+        placeholder: '{ "type": "image", "url": "https://example.com/cover.jpg", "offsetY": 50 }',
         description:
-          'A form to copy the logo, cover, theme, language, emails and notification settings from; its questions are not copied. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+          'JSON object: a color, { "type": "color", "color": "#0f4c81" }, or an image as in the placeholder, where offsetY from 0 to 100 picks the part that shows',
+      },
+      {
+        displayName: 'Emoji',
+        name: 'emoji',
+        type: 'string',
+        default: '',
+        description: 'One emoji, shown beside the form name',
       },
       {
         displayName: 'Form Language',
@@ -260,23 +267,38 @@ const inlineFormProperties: INodeProperties[] = [
         type: 'string',
         default: '',
         placeholder: 'e.g. de',
-        description: "The form's UI language. Defaults to the baseline form's, else English.",
+        description: "The form's UI language. Defaults to English.",
+      },
+      {
+        displayName: 'Logo',
+        name: 'logo',
+        type: 'json',
+        default: '',
+        placeholder: '{ "type": "image", "url": "https://example.com/logo.png" }',
+        description:
+          'JSON object: an icon, { "type": "icon", "name": "HeartIcon" }, or an image as in the placeholder. An image must be a public JPEG, PNG or WebP; Formstep keeps its own copy.',
       },
       {
         displayName: 'Settings',
         name: 'settings',
         type: 'json',
         default: '{}',
-        description:
-          "JSON object of form settings on top of the baseline's, such as { \"showBranding\": false }. Fields are named by key; email copy may use {{key}}.",
+        description: 'JSON object of form settings, such as { "showBranding": false }. Fields are named by key; email copy may use {{key}}.',
       },
       {
         displayName: 'Theme',
         name: 'theme',
         type: 'json',
         default: '{}',
+        description: 'JSON object with a look per color mode, such as { "light": "solarized-light", "dark": "dracula" }',
+      },
+      {
+        displayName: 'Translations',
+        name: 'translations',
+        type: 'json',
+        default: '{}',
         description:
-          'JSON object with a look per color mode, such as { "light": "solarized-light", "dark": "dracula" }. Wins over the baseline\'s theme for the mode it sets.',
+          'JSON object that publishes the form in more languages: { "de": { "text as written in the blocks": "translation" } }. Every string of the form must be there.',
       },
     ],
   },

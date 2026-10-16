@@ -44,10 +44,13 @@ interface CreateAdditionalFields {
 
 /** The Form Options collection of a new form. */
 interface InlineFormOptions {
-  baseline?: string
+  cover?: unknown
+  emoji?: string
   language?: string
+  logo?: unknown
   settings?: unknown
   theme?: unknown
+  translations?: unknown
 }
 
 /** A JSON-typed parameter, whether n8n handed over its text or an expression already produced the object. */
@@ -135,15 +138,21 @@ function readInlineForm(context: IExecuteFunctions, itemIndex: number): Record<s
     throw new NodeOperationError(context.getNode(), 'Form Blocks must be a JSON array of blocks', { itemIndex })
   }
   const options = context.getNodeParameter('formOptions', itemIndex, {}) as InlineFormOptions
-  const settings = readNonEmptyObject(context, options.settings, 'Settings', itemIndex)
+  const logo = readNonEmptyObject(context, options.logo, 'Logo', itemIndex)
+  const cover = readNonEmptyObject(context, options.cover, 'Cover', itemIndex)
   const theme = readNonEmptyObject(context, options.theme, 'Theme', itemIndex)
+  const settings = readNonEmptyObject(context, options.settings, 'Settings', itemIndex)
+  const translations = readNonEmptyObject(context, options.translations, 'Translations', itemIndex)
   return {
     name,
     blocks,
-    ...(options.baseline ? { baseline: options.baseline } : {}),
     ...(options.language ? { language: options.language } : {}),
-    ...(settings ? { settings } : {}),
+    ...(logo ? { logo } : {}),
+    ...(cover ? { cover } : {}),
+    ...(options.emoji ? { emoji: options.emoji } : {}),
     ...(theme ? { theme } : {}),
+    ...(settings ? { settings } : {}),
+    ...(translations ? { translations } : {}),
   }
 }
 
