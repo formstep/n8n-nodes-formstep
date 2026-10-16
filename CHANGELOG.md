@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## 0.12.0 - 2026-10-16
 
 - **Create** on node version 2 takes a new **Form Source** parameter. **Published Form**, the default, works as before. **New Form** sends the form's definition in place of a form ID: a **Form Name**, **Form Blocks** as a JSON array, and under **Form Options** a logo, cover, emoji, form language, theme, settings and translations. Formstep builds the form, publishes it and creates the request in one call, and the same definition again reuses that form. **Prefill** and **Context** are JSON objects keyed by block key, and **Read-Only Field Keys** a comma-separated list. The response adds the new form's `form` summary with its field keys. Needs a Formstep backend whose inline forms carry their own brand (`logo`, `cover`, `emoji`) and take no `baseline`.
+- New example workflow `examples/formstep-request-new-form.json`: a request with a form built from blocks, greeted by name through **Context**, that waits for the outcome and reads the answers.
 - Node version 2 shows **Fields**, **Read-Only Fields** and **Documents** only with **Published Form**. Saved workflows keep their values, and version 1 nodes are unchanged.
 
 ## 0.11.1 - 2026-10-08
