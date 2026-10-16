@@ -4,7 +4,8 @@ Community nodes for [n8n](https://n8n.io) that create [Formstep](https://formste
 
 ## Features
 
-- **Formstep** node: create a request for a form and a recipient, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
+- **Formstep** node: create a request for a published form, or for a new form built from blocks in the same call, and a recipient, with prefilled and read-only fields, context, reminders, expiry and delivery by email; get, cancel, remind, list requests; replay a request's callback.
+- No form yet: set **Form Source** to **New Form** and send the form's blocks as JSON. Formstep builds the form, publishes it and creates the request in one step, and the same blocks again reuse the form.
 - Map a request's fields like any n8n mapping: pick the form, and **Fields** lists its questions with a dropdown for each choice, a number or date input where Formstep expects one, and the form's context fields. **Map Automatically** sends an input item's keys that match the form's field keys.
 - Search forms by name, and pick a request from the workspace's newest ones, or pass an ID.
 - Pause a workflow until the recipient answers: **Wait for the Outcome** points the request's callback at n8n's Wait node, so the workflow resumes with the completed, expired or canceled request as its input.
@@ -48,7 +49,7 @@ Add **Formstep** to a workflow, select the **Request** resource and an operation
 
 | Operation           | Formstep method           | What it does                                                                                                                                                                                                 |
 | ------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Create**          | `requests.create`         | Creates a request for a published form. Returns the request summary, including the request link in `url`.                                                                                                     |
+| **Create**          | `requests.create`         | Creates a request for a published form, or for a new form built from blocks in the same call. Returns the request summary, including the request link in `url`, and for a new form its `form` summary.        |
 | **Get**             | `requests.get`            | Reads one request: status, outcome, recipient, `answers` and `display` once it is completed.                                                                                                                 |
 | **Get Many**        | `requests.list`           | Lists the requests of a form or of the whole workspace, newest first, with status, outcome, external ID and test filters. **Return All** follows the cursor across every page; otherwise **Limit** caps it. |
 | **Cancel**          | `requests.cancel`         | Cancels a pending request, with an optional reason that comes back as `cancelReason` on the request and in the `request.canceled` event.                                                                     |
@@ -79,6 +80,29 @@ Add **Formstep** to a workflow, select the **Request** resource and an operation
 7. Set **External ID** to your own identifier, for example `{{ $execution.id }}`. The node also sends it as the request's `idempotencyKey`, so a retried execution gets the same request back (`deduplicated: true`) instead of creating a second one.
 
 Every request also carries `formId`, `status`, `url`, `externalId`, `isTest`, `deliveryStatus`, `hasCallback`, `remindersSent`, `expiresAt` and `createdAt` in its summary.
+
+### Create a request with a new form
+
+When the questions depend on the case, or nobody has built the form yet, set **Form Source** to **New Form**. The node sends `form` in place of `formId`, and Formstep builds an ordinary form from the blocks, publishes it and creates the request in one call: both exist or neither does.
+
+1. **Form Name**: the name on the dashboard and in the browser tab. Keep it the same for every item.
+2. **Form Blocks**: a JSON array of blocks in form order. Each block takes `type`, a `key` and the parameters of its type, the same ones as the matching `editor_insert*` tool on Formstep's MCP server:
+
+   ```json
+   [
+     { "type": "paragraph", "content": "Hi {{first_name}}, please upload your payslips and pay the fee." },
+     { "type": "hiddenField", "key": "first_name" },
+     { "type": "file", "key": "payslips", "title": "Your last three payslips", "maxFiles": 3 },
+     { "type": "select", "key": "employment", "title": "Employment", "options": ["Employed", "Self-employed"] },
+     { "type": "payment", "key": "fee", "title": "Processing fee", "amount": 40, "currency": "EUR" }
+   ]
+   ```
+
+   Questions: text, contact, number, date, time, radio, checkbox, select, switch, rating, linearScale, matrix, ranking, pictureChoice, file, signature, decision. Also documents, payment, scheduleAppointment, content blocks (header, paragraph, image, embedded, table, list, row) and structure (pageDivider, repeatingGroup, hiddenField, calculatedField, logic). Set `key` on every question: the answers come back under it. [Create a form and a request in one call](https://docs.formstep.io/requests/inline-forms/) lists every parameter.
+3. **Prefill** and **Context**: JSON objects keyed by block key. A choice question takes option keys derived from the labels, so `Self-employed` becomes `self_employed`. **Read-Only Field Keys** lists prefilled keys the recipient may not change.
+4. **Form Options**: the form's brand and behaviour, sent with every item. **Logo** (`{ "type": "icon", "name": "HeartIcon" }` or `{ "type": "image", "url": "https://…/logo.png" }`), **Cover** (`{ "type": "color", "color": "#0f4c81" }` or an image with `offsetY`), **Emoji**, **Form Language**, **Theme** (`{ "light": "solarized-light", "dark": "dracula" }`), **Settings**, and **Translations** (`{ "de": { "text as written": "Übersetzung" } }`, every string of the form). Image URLs must be public JPEG, PNG or WebP; Formstep keeps its own copy.
+
+The response adds `form`: its `id`, `name`, whether it was `reused`, and `fields`, the keys its answers come back under. The same definition again reuses the form (`reused: true`), so put the customer's name or amount in **Prefill** and **Context**, never in the name, a block or the brand, or every item makes a new form. A payment or booking block needs Stripe or Cal.com connected to the workspace; when it is not, the error carries the `connectUrl` a person opens once. A new form takes no **Documents**, since it has no ID to upload them against until the call that creates it. Recipient, delivery, reminders, expiry, External ID, metadata, test mode and **Wait for the Outcome** work as for a published form.
 
 **Get**, **Remind**, **Cancel** and **Replay Callback** take the **Request** by ID, usually `{{ $json.id }}` from a Create node, or from a list of the workspace's newest requests, labelled by recipient, status and External ID.
 
