@@ -19,8 +19,31 @@ function showFor(operations: RequestOperation[], extra: IDisplayOptions['show'] 
   return { show: { resource: ['request'], operation: operations, ...extra } }
 }
 
-/** The Form parameter of the given operations, in both versions' shapes. */
-function formIdProperties(operations: RequestOperation[], extra: IDisplayOptions['show'] = {}): INodeProperties[] {
+/**
+ * Create on version 2 either sends a published form or builds a new one in the
+ * same call (`form` instead of `formId`); the parameters of each show for its
+ * source only. Version 1 always sends a published form.
+ */
+const EXISTING_FORM: IDisplayOptions['show'] = { ...V2, formSource: ['existing'] }
+const INLINE_FORM: IDisplayOptions['show'] = { ...V2, formSource: ['inline'] }
+
+/**
+ * A Create parameter that only makes sense for a published form: once as
+ * version 1 had it, once for version 2 with a published form picked.
+ */
+function forExistingForm(property: INodeProperties): INodeProperties[] {
+  return [
+    { ...property, displayOptions: showFor(['create'], V1) },
+    { ...property, displayOptions: showFor(['create'], EXISTING_FORM) },
+  ]
+}
+
+/** The Form parameter of the given operations, in both versions' shapes. `v2Extra` narrows the version 2 one further. */
+function formIdProperties(
+  operations: RequestOperation[],
+  extra: IDisplayOptions['show'] = {},
+  v2Extra: IDisplayOptions['show'] = {}
+): INodeProperties[] {
   return [
     {
       displayName: 'Form Name or ID',
@@ -36,7 +59,7 @@ function formIdProperties(operations: RequestOperation[], extra: IDisplayOptions
       displayName: 'Form',
       name: 'formId',
       type: 'resourceLocator',
-      displayOptions: showFor(operations, { ...extra, ...V2 }),
+      displayOptions: showFor(operations, { ...extra, ...v2Extra, ...V2 }),
       default: { mode: 'list', value: '' },
       required: true,
       description: 'The form of the credential\'s workspace. A request needs a published one.',
@@ -128,7 +151,7 @@ const operationProperty: INodeProperties = {
       name: 'Create',
       value: 'create',
       action: 'Create request',
-      description: 'Ask one recipient to complete a published form',
+      description: 'Ask one recipient to complete a published form, or a new form built in the same call',
     },
     {
       name: 'Get',
@@ -158,8 +181,130 @@ const operationProperty: INodeProperties = {
   default: 'create',
 }
 
+const BLOCKS_EXAMPLE = `[
+  { "type": "paragraph", "content": "Hi {{first_name}}, please upload your payslips." },
+  { "type": "hiddenField", "key": "first_name" },
+  { "type": "file", "key": "payslips", "title": "Your last three payslips", "maxFiles": 3 }
+]`
+
+/** Create on version 2 with Form Source "New Form": the `form` object and the values keyed by its block keys. */
+const inlineFormProperties: INodeProperties[] = [
+  {
+    displayName: 'Form Name',
+    name: 'formName',
+    type: 'string',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: '',
+    required: true,
+    placeholder: 'e.g. Documents for your mortgage application',
+    description:
+      'The name on the dashboard and in the browser tab, 1 to 100 characters. Keep it the same for every recipient: a name that changes per item makes a new form per item.',
+  },
+  {
+    displayName: 'Form Blocks',
+    name: 'formBlocks',
+    type: 'json',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: BLOCKS_EXAMPLE,
+    required: true,
+    description:
+      'JSON array of 1 to 200 blocks in form order, each { "type", "key", ...the parameters of its type }. Set a key on every question: the answers come back under it. Types and parameters: <a href="https://docs.formstep.io/requests/inline-forms/">Create a form and a request in one call</a>.',
+  },
+  {
+    displayName: 'Prefill',
+    name: 'inlinePrefill',
+    type: 'json',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: '{}',
+    description:
+      'Starting answers keyed by block key. A choice question takes option keys derived from the labels: "Self-employed" becomes self_employed.',
+  },
+  {
+    displayName: 'Context',
+    name: 'inlineContext',
+    type: 'json',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: '{}',
+    description:
+      'Hidden-field values keyed by the hiddenField block keys. Personalise the form here, never in its name or blocks, so every item reuses one form.',
+  },
+  {
+    displayName: 'Read-Only Field Keys',
+    name: 'inlineReadonly',
+    type: 'string',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: '',
+    placeholder: 'e.g. company_name, plan',
+    description: 'Comma-separated block keys the recipient may see but not change. Each one must also be in Prefill.',
+  },
+  {
+    displayName: 'Form Options',
+    name: 'formOptions',
+    type: 'collection',
+    placeholder: 'Add Option',
+    displayOptions: showFor(['create'], INLINE_FORM),
+    default: {},
+    options: [
+      {
+        displayName: 'Baseline Form Name or ID',
+        name: 'baseline',
+        type: 'options',
+        typeOptions: { loadOptionsMethod: 'getForms' },
+        default: '',
+        description:
+          'A form to copy the logo, cover, theme, language, emails and notification settings from; its questions are not copied. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+      },
+      {
+        displayName: 'Form Language',
+        name: 'language',
+        type: 'string',
+        default: '',
+        placeholder: 'e.g. de',
+        description: "The form's UI language. Defaults to the baseline form's, else English.",
+      },
+      {
+        displayName: 'Settings',
+        name: 'settings',
+        type: 'json',
+        default: '{}',
+        description:
+          "JSON object of form settings on top of the baseline's, such as { \"showBranding\": false }. Fields are named by key; email copy may use {{key}}.",
+      },
+      {
+        displayName: 'Theme',
+        name: 'theme',
+        type: 'json',
+        default: '{}',
+        description:
+          'JSON object with a look per color mode, such as { "light": "solarized-light", "dark": "dracula" }. Wins over the baseline\'s theme for the mode it sets.',
+      },
+    ],
+  },
+]
+
 const createProperties: INodeProperties[] = [
-  ...formIdProperties(['create']),
+  {
+    displayName: 'Form Source',
+    name: 'formSource',
+    type: 'options',
+    noDataExpression: true,
+    displayOptions: showFor(['create'], V2),
+    options: [
+      {
+        name: 'Published Form',
+        value: 'existing',
+        description: 'Send a form built and published in Formstep',
+      },
+      {
+        name: 'New Form',
+        value: 'inline',
+        description: 'Build the form from blocks in this call; the same blocks again reuse the form',
+      },
+    ],
+    default: 'existing',
+  },
+  ...formIdProperties(['create'], {}, { formSource: ['existing'] }),
+  ...inlineFormProperties,
   {
     displayName: 'Recipient Email',
     name: 'recipientEmail',
@@ -176,7 +321,7 @@ const createProperties: INodeProperties[] = [
     name: 'fields',
     type: 'resourceMapper',
     noDataExpression: true,
-    displayOptions: showFor(['create'], V2),
+    displayOptions: showFor(['create'], EXISTING_FORM),
     default: { mappingMode: 'defineBelow', value: null },
     description:
       'Initial answers the recipient sees, and context values they never see, keyed by field key. Map Automatically sends every input field named after a field key of the form.',
@@ -194,23 +339,21 @@ const createProperties: INodeProperties[] = [
       },
     },
   },
-  {
+  ...forExistingForm({
     displayName: 'Read-Only Field Names or IDs',
     name: 'readonly',
     type: 'multiOptions',
     typeOptions: { loadOptionsMethod: 'getPrefillKeys', loadOptionsDependsOn: ['formId'] },
-    displayOptions: showFor(['create']),
     default: [],
     description:
       'Prefilled fields the recipient may see but not change. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-  },
-  {
+  }),
+  ...forExistingForm({
     displayName: 'Documents',
     name: 'documents',
     type: 'fixedCollection',
     placeholder: 'Add Document',
     typeOptions: { multipleValues: true },
-    displayOptions: showFor(['create']),
     default: {},
     description:
       "Files from the input item the recipient gets in the form's Documents block, below the documents the form already has. PDF or image, up to 25 MB each.",
@@ -246,7 +389,7 @@ const createProperties: INodeProperties[] = [
         ],
       },
     ],
-  },
+  }),
   {
     displayName: 'Wait for the Outcome',
     name: 'waitForOutcome',

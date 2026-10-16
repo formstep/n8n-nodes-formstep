@@ -330,6 +330,87 @@ describe('Formstep.execute: create with the Fields mapper', () => {
   })
 })
 
+describe('Formstep.execute: create with a new form', () => {
+  const BLOCKS = [
+    { type: 'hiddenField', key: 'first_name' },
+    { type: 'select', key: 'employment', title: 'Employment', options: ['Employed', 'Self-employed'] },
+  ]
+  const INLINE = {
+    resource: 'request',
+    operation: 'create',
+    formSource: 'inline',
+    formName: 'Your application',
+    formBlocks: JSON.stringify(BLOCKS),
+  }
+
+  it('shows the form picker, Fields, Read-Only and Documents for a published form only', () => {
+    const formSource = v2Property('formSource')
+    expect(formSource).toMatchObject({ type: 'options', default: 'existing' })
+    expect(formSource?.options?.map((option) => (option as { value: string }).value)).toEqual(['existing', 'inline'])
+
+    const createFormId = propertiesNamed('formId').find(
+      (property) => property.type === 'resourceLocator' && property.displayOptions?.show?.operation?.includes('create')
+    )
+    expect(createFormId?.displayOptions?.show?.formSource).toEqual(['existing'])
+    for (const name of ['fields', 'readonly', 'documents']) {
+      expect(v2Property(name)?.displayOptions?.show?.formSource).toEqual(['existing'])
+    }
+    for (const name of ['formName', 'formBlocks', 'inlinePrefill', 'inlineContext', 'inlineReadonly', 'formOptions']) {
+      expect(v2Property(name)?.displayOptions?.show?.formSource).toEqual(['inline'])
+    }
+  })
+
+  it('sends the form definition instead of a form ID, and reads no field list', async () => {
+    respond(() => ({ id: 'req_1', status: 'pending', form: { id: 'form_new', reused: false } }))
+
+    const items = await run([
+      {
+        ...INLINE,
+        recipientEmail: 'ada@example.com',
+        inlinePrefill: '{ "employment": "self_employed" }',
+        inlineContext: { first_name: 'Ada' },
+        inlineReadonly: 'employment, ',
+        formOptions: { baseline: 'form_brand', language: 'de', settings: '{ "showBranding": false }', theme: '{}' },
+        additionalFields: { externalId: 'case-7' },
+      },
+    ])
+
+    expect(sentParams('fields.list')).toEqual([])
+    expect(sentParams('requests.create')).toEqual([
+      {
+        form: { name: 'Your application', blocks: BLOCKS, baseline: 'form_brand', language: 'de', settings: { showBranding: false } },
+        prefill: { employment: 'self_employed' },
+        context: { first_name: 'Ada' },
+        readonly: ['employment'],
+        recipient: { email: 'ada@example.com' },
+        externalId: 'case-7',
+        idempotencyKey: 'case-7',
+      },
+    ])
+    expect(items[0].json).toMatchObject({ form: { id: 'form_new' } })
+  })
+
+  it('sends just the name and blocks when nothing else is set', async () => {
+    respond(() => ({ id: 'req_1' }))
+
+    await run([{ ...INLINE, inlinePrefill: '{}', inlineContext: '{}', inlineReadonly: '' }])
+
+    expect(sentParams('requests.create')).toEqual([{ form: { name: 'Your application', blocks: BLOCKS } }])
+  })
+
+  it.each([
+    ['blocks that are not JSON', { formBlocks: '[{ type: text }]' }, 'The form blocks is not valid JSON'],
+    ['blocks that are not an array', { formBlocks: '{ "type": "text" }' }, 'Form Blocks must be a JSON array of blocks'],
+    ['a prefill that is not an object', { inlinePrefill: '["a"]' }, 'Prefill must be a JSON object'],
+    ['settings that are not an object', { formOptions: { settings: '[]' } }, 'Settings must be a JSON object'],
+  ])('refuses %s before calling Formstep', async (_case, parameters, message) => {
+    respond(() => ({ id: 'req_1' }))
+
+    await expect(run([{ ...INLINE, ...parameters }])).rejects.toThrow(message)
+    expect(mockedRequest).not.toHaveBeenCalled()
+  })
+})
+
 describe('Formstep.execute: operations', () => {
   it('refuses an operation it does not have, even one named like an object method', async () => {
     await expect(run([{ resource: 'request', operation: 'toString' }])).rejects.toThrow('The operation "toString" is not supported')
