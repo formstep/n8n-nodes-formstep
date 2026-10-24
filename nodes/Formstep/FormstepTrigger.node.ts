@@ -116,6 +116,19 @@ function isCurrentRegistration(subscription: WebhookSubscription, registration: 
   return subscription.idleWindow === registration.idleWindow
 }
 
+/**
+ * Formstep delivers events to public HTTPS URLs only. An n8n without a public
+ * address hands out http://localhost URLs, which Formstep refuses with a bare
+ * VALIDATION_ERROR; say which n8n settings build the URL instead.
+ */
+function assertHttpsWebhookUrl(context: IHookFunctions, webhookUrl: string): void {
+  if (webhookUrl.startsWith('https://')) return
+  throw new NodeOperationError(context.getNode(), `Formstep sends events to HTTPS addresses only, and this webhook URL is ${webhookUrl}`, {
+    description:
+      "Set n8n's WEBHOOK_URL (published workflows) and N8N_EDITOR_BASE_URL ('Execute step') to its public HTTPS address, restart n8n and try again. See https://docs.formstep.io/guides/n8n/install-the-node/#public-address",
+  })
+}
+
 function clearWebhookRegistration(webhookData: IDataObject): void {
   delete webhookData.subscriptionId
   delete webhookData.webhookSecret
@@ -235,6 +248,7 @@ export class FormstepTrigger implements INodeType {
       async create(this: IHookFunctions): Promise<boolean> {
         const registration = readRegistration(this)
         if (!registration) return false
+        assertHttpsWebhookUrl(this, registration.webhookUrl)
 
         const webhookSecret = createFormstepWebhookSecret()
         const created = await formstepApiRequest<{ subscriptionId: string }>(this, 'webhooks.create', {

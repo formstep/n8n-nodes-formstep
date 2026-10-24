@@ -308,6 +308,14 @@ describe('Formstep.execute: create', () => {
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 
+  it('names the n8n setting to fix when the resume URL is not HTTPS', async () => {
+    const created = run([{ ...CREATE, waitForOutcome: true }], { resumeUrl: 'http://localhost:5678/webhook-waiting/123' })
+
+    await expect(created).rejects.toThrow("Formstep calls back HTTPS addresses only, and this execution's resume URL is http://localhost:5678/webhook-waiting/123")
+    await expect(created).rejects.toMatchObject({ description: expect.stringContaining('WEBHOOK_URL') })
+    expect(mockedRequest).not.toHaveBeenCalled()
+  })
+
   it('refuses a callback URL of your own together with waiting for the outcome', async () => {
     await expect(
       run([{ ...CREATE, waitForOutcome: true, additionalFields: { callbackUrl: 'https://mine.example/hook' } }], { resumeUrl: RESUME_URL })
