@@ -110,11 +110,21 @@ function v2Property(name: string): INodeProperties | undefined {
 }
 
 describe('Formstep node versions', () => {
-  it('defaults new nodes to version 2 and keeps version 1 for saved workflows', () => {
+  it('defaults new nodes to version 3 and keeps versions 1 and 2 for saved workflows', () => {
     const { description } = new Formstep()
 
-    expect(description.version).toEqual([1, 2])
-    expect(description.defaultVersion).toBe(2)
+    expect(description.version).toEqual([1, 2, 3])
+    expect(description.defaultVersion).toBe(3)
+  })
+
+  it('offers Simplify on Get and Get Many from version 3 on, on by default', () => {
+    expect(propertiesNamed('simplify')).toEqual([
+      expect.objectContaining({
+        type: 'boolean',
+        default: true,
+        displayOptions: { show: { resource: ['request'], operation: ['get', 'getAll'], '@version': [{ _cnd: { gte: 3 } }] } },
+      }),
+    ])
   })
 
   it('keeps the key/value Prefill and Context lists on version 1 only', () => {
@@ -171,6 +181,15 @@ describe('Formstep.methods.resourceMapping.getMappingFields', () => {
     ])
     expect(fields.every((field) => field.required === false && field.display === true)).toBe(true)
     expect(mockedRequest).toHaveBeenCalledWith(expect.anything(), 'fields.list', { formId: 'form_1' })
+  })
+
+  it('names a hidden field titled with its key once', async () => {
+    respond(() => ({ published: true, items: [{ key: 'reference', type: 'hidden', title: 'reference', prefillable: false, context: true }], hasMore: false }))
+    const ctx = makeLoadOptionsContext({ formId: locator('form_1') })
+
+    const { fields } = await new Formstep().methods.resourceMapping.getMappingFields.call(ctx as never)
+
+    expect(fields.map((field) => field.displayName)).toEqual(['reference · context'])
   })
 
   it('offers nothing until a form is picked', async () => {
@@ -426,6 +445,66 @@ describe('Formstep.execute: create with a new form', () => {
 
     await expect(run([{ ...INLINE, ...parameters }])).rejects.toThrow(message)
     expect(mockedRequest).not.toHaveBeenCalled()
+  })
+})
+
+describe('Formstep.execute: Simplify', () => {
+  const REQUEST = {
+    id: 'req_1',
+    status: 'completed',
+    outcome: 'approve',
+    externalId: 'run-42',
+    formId: 'form_1',
+    recipient: { email: 'ada@example.com', name: 'Ada' },
+    answers: { decision: 'approve' },
+    display: { decision: 'Approve' },
+    timeline: [{ type: 'created', at: 1792868868911 }],
+    createdAt: 1792868868911,
+    expiresAt: 1792955268911,
+    completedAt: 1792868921339,
+  }
+
+  async function runVersion(typeVersion: number, parameters: Record<string, unknown>) {
+    const ctx = makeExecuteContext([parameters])
+    ctx.getNode.mockReturnValue({ ...NODE, typeVersion })
+    const [items] = await new Formstep().execute.call(ctx as never)
+    return items.map((item) => item.json)
+  }
+
+  it('returns the fields most workflows read, flattened, with ISO timestamps', async () => {
+    respond(() => REQUEST)
+
+    expect(await runVersion(3, { resource: 'request', operation: 'get', requestId: locator('req_1') })).toEqual([
+      {
+        id: 'req_1',
+        status: 'completed',
+        outcome: 'approve',
+        externalId: 'run-42',
+        formId: 'form_1',
+        recipientEmail: 'ada@example.com',
+        answers: { decision: 'approve' },
+        createdAt: '2026-10-24T19:07:48.911Z',
+        expiresAt: '2026-10-25T19:07:48.911Z',
+        completedAt: '2026-10-24T19:08:41.339Z',
+      },
+    ])
+  })
+
+  it('simplifies every listed request, which carries no answers', async () => {
+    const { answers: _answers, display: _display, ...listed } = REQUEST
+    respond(() => ({ items: [{ ...listed, status: 'pending', outcome: null, completedAt: null }], hasMore: false, nextCursor: null }))
+
+    const [request] = await runVersion(3, { resource: 'request', operation: 'getAll', returnAll: true, scope: 'form', formId: locator('form_1', 'id') })
+
+    expect(request).not.toHaveProperty('answers')
+    expect(request).toMatchObject({ status: 'pending', outcome: null, completedAt: null, createdAt: '2026-10-24T19:07:48.911Z' })
+  })
+
+  it('returns the raw request with Simplify off, and on version 2 whatever the parameter says', async () => {
+    respond(() => REQUEST)
+
+    expect(await runVersion(3, { resource: 'request', operation: 'get', requestId: locator('req_1'), simplify: false })).toEqual([REQUEST])
+    expect(await runVersion(2, { resource: 'request', operation: 'get', requestId: locator('req_1'), simplify: true })).toEqual([REQUEST])
   })
 })
 

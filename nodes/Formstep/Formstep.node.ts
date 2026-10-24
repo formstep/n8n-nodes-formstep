@@ -27,8 +27,8 @@ export class Formstep implements INodeType {
     name: 'formstep',
     icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['transform'],
-    version: [1, 2],
-    defaultVersion: 2,
+    version: [1, 2, 3],
+    defaultVersion: 3,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
     description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until a customer completes one',
     defaults: {
