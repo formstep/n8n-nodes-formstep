@@ -1,0 +1,314 @@
+{
+  "name": "Collect the documents each claim needs",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000045",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000046",
+              "name": "claimId",
+              "value": "CLM-3107",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000047",
+              "name": "claimType",
+              "value": "water_damage",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000048",
+              "name": "claimLabel",
+              "value": "water damage",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000049",
+              "name": "firstName",
+              "value": "Ada",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000050",
+              "name": "email",
+              "value": "ada@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000051",
+      "name": "Claim"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const checklists = {\n  water_damage: [\n    { key: 'damage_photos', title: 'Photos of the damage', maxFiles: 10 },\n    { key: 'repair_estimate', title: 'Repair estimate from a contractor', maxFiles: 1 },\n  ],\n  theft: [\n    { key: 'police_report', title: 'Police report', maxFiles: 1 },\n    { key: 'receipts', title: 'Receipts for the stolen items', maxFiles: 10 },\n  ],\n}\n\n// One file question per document the claim type needs, after a greeting\n// that reads the hidden first_name and claim_id the request fills in.\nconst documents = checklists[$json.claimType]\nif (!documents) throw new Error(`No checklist for claim type ${$json.claimType}`)\nconst blocks = [\n  { type: 'header', content: 'Hi {{first_name}}, a few documents for claim {{claim_id}}' },\n  { type: 'paragraph', content: 'Upload each document below. Photos from your phone are fine.' },\n  { type: 'hiddenField', key: 'first_name' },\n  { type: 'hiddenField', key: 'claim_id' },\n  ...documents.map((document) => ({ type: 'file', ...document })),\n  { type: 'text', key: 'notes', title: 'Anything we should know?', required: false },\n]\nreturn { json: { ...$json, blocks } }"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000052",
+      "name": "Build the checklist"
+    },
+    {
+      "parameters": {
+        "resource": "request",
+        "operation": "create",
+        "formSource": "inline",
+        "formName": "=Documents for your {{ $json.claimLabel }} claim",
+        "formBlocks": "={{ JSON.stringify($json.blocks) }}",
+        "inlinePrefill": "{}",
+        "inlineContext": "={{ JSON.stringify({ first_name: $json.firstName, claim_id: $json.claimId }) }}",
+        "inlineReadonly": "",
+        "formOptions": {
+          "emoji": "📎",
+          "cover": "{ \"type\": \"color\", \"color\": \"#1f6f5c\" }"
+        },
+        "recipientEmail": "={{ $json.email }}",
+        "waitForOutcome": true,
+        "additionalFields": {
+          "delivery": "email",
+          "recipientName": "={{ $json.firstName }}",
+          "externalId": "={{ $json.claimId }}-{{ $execution.id }}",
+          "expiresAt": "={{ $now.plus({ days: 14 }).toISO() }}",
+          "test": true
+        }
+      },
+      "type": "n8n-nodes-formstep.formstep",
+      "typeVersion": 3,
+      "position": [660, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000053",
+      "name": "Ask for the documents"
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000055",
+      "name": "Wait for the documents",
+      "webhookId": "3a17b0d1-0000-4000-8000-000000000054"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0ffee00-0000-4000-8000-0000000000b1",
+              "leftValue": "={{ $json.body.type }}",
+              "rightValue": "request.completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000056",
+      "name": "Completed?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// One item per uploaded file, named after the question it answers.\nconst event = $json.body.data\nconst items = []\nfor (const [question, answer] of Object.entries(event.answers)) {\n  if (!Array.isArray(answer)) continue\n  for (const file of answer) {\n    if (file.url) items.push({ json: { question, name: `${question} - ${file.name}`, url: file.url } })\n  }\n}\nreturn items"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000057",
+      "name": "One item per file"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000058",
+      "name": "Download each file"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/{{ $('Claim').item.json.claimId }} {{ $json.name }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [1760, -100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000059",
+      "name": "Save to the claim folder"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000060",
+              "name": "claimId",
+              "value": "={{ $('Claim').item.json.claimId }}",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000061",
+              "name": "message",
+              "value": "={{ $('Claim').item.json.firstName }} sent no documents for claim {{ $('Claim').item.json.claimId }} ({{ $json.body.type }}).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 120],
+      "id": "a1b2c3d4-0000-4000-8000-000000000062",
+      "name": "No answer: call the customer"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim": {
+      "main": [
+        [
+          {
+            "node": "Build the checklist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the checklist": {
+      "main": [
+        [
+          {
+            "node": "Ask for the documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for the documents": {
+      "main": [
+        [
+          {
+            "node": "Wait for the documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for the documents": {
+      "main": [
+        [
+          {
+            "node": "Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Completed?": {
+      "main": [
+        [
+          {
+            "node": "One item per file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No answer: call the customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per file": {
+      "main": [
+        [
+          {
+            "node": "Download each file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download each file": {
+      "main": [
+        [
+          {
+            "node": "Save to the claim folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1c2d3e4-0003-4000-8000-000000000003",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

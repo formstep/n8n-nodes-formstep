@@ -1,0 +1,536 @@
+{
+  "name": "Get an expense approved by a manager",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000002",
+              "name": "expenseId",
+              "value": "EXP-1042",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000003",
+              "name": "employeeName",
+              "value": "Grace Hansen",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000004",
+              "name": "employeeEmail",
+              "value": "grace@example.com",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000005",
+              "name": "managerName",
+              "value": "Maria Berg",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000006",
+              "name": "managerEmail",
+              "value": "maria@example.com",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000007",
+              "name": "amount",
+              "value": "NOK 3 700",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000008",
+              "name": "description",
+              "value": "Hotel in Bergen, client workshop",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000009",
+              "name": "receiptUrl",
+              "value": "https://docs.formstep.io/guides/n8n/samples/hotel-receipt.pdf",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000010",
+      "name": "Expense claim"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.receiptUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000011",
+      "name": "Download the receipt"
+    },
+    {
+      "parameters": {
+        "resource": "request",
+        "operation": "create",
+        "formId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "recipientEmail": "={{ $('Expense claim').item.json.managerEmail }}",
+        "fields": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reference": "={{ $('Expense claim').item.json.expenseId }}",
+            "amount": "={{ $('Expense claim').item.json.amount }}",
+            "description": "={{ $('Expense claim').item.json.description }}",
+            "employee_name": "={{ $('Expense claim').item.json.employeeName }}",
+            "full_name": "={{ $('Expense claim').item.json.managerName }}",
+            "company_name": "Acme Inc"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "reference",
+              "displayName": "reference · context",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "amount",
+              "displayName": "amount · context",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "description",
+              "displayName": "description · context",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "employee_name",
+              "displayName": "employee_name · context",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "full_name",
+              "displayName": "Your Name (full_name)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "company_name",
+              "displayName": "Company (company_name)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "decision",
+              "displayName": "Your Decision (decision)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Approve",
+                  "value": "approve"
+                },
+                {
+                  "name": "Decline",
+                  "value": "decline"
+                },
+                {
+                  "name": "Request changes",
+                  "value": "changes"
+                }
+              ],
+              "removed": true
+            },
+            {
+              "id": "requested_changes",
+              "displayName": "What should change? (requested_changes)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "readonly": ["company_name"],
+        "documents": {
+          "values": [
+            {
+              "binaryProperty": "data",
+              "name": "=Receipt {{ $('Expense claim').item.json.expenseId }}",
+              "field": ""
+            }
+          ]
+        },
+        "waitForOutcome": true,
+        "additionalFields": {
+          "delivery": "email",
+          "recipientName": "={{ $('Expense claim').item.json.managerName }}",
+          "externalId": "={{ $('Expense claim').item.json.expenseId }}-{{ $execution.id }}",
+          "expiresAt": "={{ $now.plus({ days: 3 }).toISO() }}",
+          "test": true
+        }
+      },
+      "type": "n8n-nodes-formstep.formstep",
+      "typeVersion": 3,
+      "position": [660, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000012",
+      "name": "Ask the manager"
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000014",
+      "name": "Wait for the decision",
+      "webhookId": "3a17b0d1-0000-4000-8000-000000000013"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c0ffee00-0000-4000-8000-000000000001",
+                    "leftValue": "={{ $json.body.data.request.outcome }}",
+                    "rightValue": "approve",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "approve"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c0ffee00-0000-4000-8000-000000000002",
+                    "leftValue": "={{ $json.body.data.request.outcome }}",
+                    "rightValue": "changes",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "changes"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c0ffee00-0000-4000-8000-000000000003",
+                    "leftValue": "={{ $json.body.data.request.outcome }}",
+                    "rightValue": "decline",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "decline"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "no answer"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1100, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000015",
+      "name": "Route by decision"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000016",
+              "name": "to",
+              "value": "={{ $('Expense claim').item.json.employeeEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000017",
+              "name": "message",
+              "value": "=Your expense {{ $('Expense claim').item.json.expenseId }} of {{ $('Expense claim').item.json.amount }} was approved by {{ $json.body.data.answers.full_name }}. It goes out with the next payroll.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1360, -300],
+      "id": "a1b2c3d4-0000-4000-8000-000000000018",
+      "name": "Approved: pay it out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000019",
+              "name": "to",
+              "value": "={{ $('Expense claim').item.json.employeeEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000020",
+              "name": "message",
+              "value": "={{ $json.body.data.answers.full_name }} asks you to change expense {{ $('Expense claim').item.json.expenseId }}: {{ $json.body.data.answers.requested_changes }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1360, -100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000021",
+      "name": "Changes: ask the employee"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000022",
+              "name": "to",
+              "value": "={{ $('Expense claim').item.json.employeeEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000023",
+              "name": "message",
+              "value": "=Your expense {{ $('Expense claim').item.json.expenseId }} of {{ $('Expense claim').item.json.amount }} was declined by {{ $json.body.data.answers.full_name }}.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1360, 100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000024",
+      "name": "Declined: tell the employee"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000025",
+              "name": "to",
+              "value": "finance@example.com",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000026",
+              "name": "message",
+              "value": "={{ $('Expense claim').item.json.managerName }} did not answer expense {{ $('Expense claim').item.json.expenseId }} within three days ({{ $json.body.type }}).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1360, 300],
+      "id": "a1b2c3d4-0000-4000-8000-000000000027",
+      "name": "No answer: escalate"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Expense claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expense claim": {
+      "main": [
+        [
+          {
+            "node": "Download the receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the receipt": {
+      "main": [
+        [
+          {
+            "node": "Ask the manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the manager": {
+      "main": [
+        [
+          {
+            "node": "Wait for the decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for the decision": {
+      "main": [
+        [
+          {
+            "node": "Route by decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by decision": {
+      "main": [
+        [
+          {
+            "node": "Approved: pay it out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Changes: ask the employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Declined: tell the employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No answer: escalate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1c2d3e4-0001-4000-8000-000000000001",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

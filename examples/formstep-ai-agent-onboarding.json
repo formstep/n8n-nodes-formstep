@@ -1,0 +1,273 @@
+{
+  "name": "Onboard clients with an AI agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000063",
+      "name": "When chat message received",
+      "webhookId": "a1b2c3d4-0000-4000-8000-0000000000c1"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You help the Acme Inc team onboard new clients.\nTo onboard a client, send them the onboarding form with what you already know: their name, email, company and customer number. Ask the team member for anything missing first, and never invent an email address.\nAfter sending, give the team member the link and the request id.\nWhen asked how an onboarding is going, check the request. A completed request has the answers the client confirmed.\nRemind a client only when the team member asks you to."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [260, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000064",
+      "name": "Onboarding assistant"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5-5",
+          "cachedResultName": "Claude Sonnet 5.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [120, 240],
+      "id": "a1b2c3d4-0000-4000-8000-000000000065",
+      "name": "Claude"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [280, 240],
+      "id": "a1b2c3d4-0000-4000-8000-000000000066",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Send a new client the onboarding form, prefilled with their details, by email. Returns the request id and the link.",
+        "resource": "request",
+        "operation": "create",
+        "formId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "recipientEmail": "={{ $fromAI('email', 'The client email address, exactly as the team member gave it', 'string') }}",
+        "fields": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $fromAI('customer_id', 'The customer number, such as C-1042', 'string') }}",
+            "full_name": "={{ $fromAI('full_name', 'The client contact full name', 'string') }}",
+            "company_name": "={{ $fromAI('company_name', 'The client company name', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id · context",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "full_name",
+              "displayName": "Full Name (full_name)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "displayName": "Email Address (email)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "Phone Number (phone)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "Company (company_name)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "billing_address",
+              "displayName": "Billing Address (billing_address)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "terms_accepted",
+              "displayName": "I agree to the terms of service (terms_accepted)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "boolean",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "readonly": [],
+        "documents": {},
+        "waitForOutcome": false,
+        "additionalFields": {
+          "delivery": "email",
+          "test": true
+        }
+      },
+      "type": "n8n-nodes-formstep.formstepTool",
+      "typeVersion": 3,
+      "position": [440, 240],
+      "id": "a1b2c3d4-0000-4000-8000-000000000067",
+      "name": "Send the onboarding form"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Read where an onboarding request stands: pending, completed, expired or canceled, and the answers once the client completed it.",
+        "resource": "request",
+        "operation": "get",
+        "requestId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $fromAI('request_id', 'The id that Send the onboarding form returned for this client', 'string') }}"
+        },
+        "simplify": true
+      },
+      "type": "n8n-nodes-formstep.formstepTool",
+      "typeVersion": 3,
+      "position": [600, 240],
+      "id": "a1b2c3d4-0000-4000-8000-000000000068",
+      "name": "Check an onboarding"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Email the client a reminder about their pending onboarding form. Only when the team member asks for it.",
+        "resource": "request",
+        "operation": "remind",
+        "requestId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $fromAI('request_id', 'The id that Send the onboarding form returned for this client', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-formstep.formstepTool",
+      "typeVersion": 3,
+      "position": [760, 240],
+      "id": "a1b2c3d4-0000-4000-8000-000000000069",
+      "name": "Remind the client"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send the onboarding form": {
+      "ai_tool": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check an onboarding": {
+      "ai_tool": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remind the client": {
+      "ai_tool": [
+        [
+          {
+            "node": "Onboarding assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1c2d3e4-0004-4000-8000-000000000004",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
