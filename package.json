@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-formstep",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "n8n community nodes for Formstep — create requests, pause a workflow until a customer completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect and verify customer information for workflows and AI agents.",
   "keywords": [
     "n8n-community-node-package",
@@ -10,7 +10,10 @@
     "requests",
     "customer-in-the-loop",
     "human-in-the-loop",
-    "webhook"
+    "webhook",
+    "approval",
+    "document-collection",
+    "ai-agent"
   ],
   "license": "MIT",
   "homepage": "https://formstep.io",
