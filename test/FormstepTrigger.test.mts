@@ -379,6 +379,16 @@ describe('FormstepTrigger.webhookMethods.default.create', () => {
     expect(ctx._staticData.webhookSecret).toBe(createParams.signingSecret)
   })
 
+  it('names the n8n settings to fix instead of registering a URL Formstep would refuse', async () => {
+    const ctx = makeHookContext({ webhookUrl: 'http://localhost:5678/webhook-test/abc/formstep' })
+
+    const created = new FormstepTrigger().webhookMethods.default.create.call(ctx as never)
+
+    await expect(created).rejects.toThrow('Formstep sends events to HTTPS addresses only, and this webhook URL is http://localhost:5678/webhook-test/abc/formstep')
+    await expect(created).rejects.toMatchObject({ description: expect.stringContaining('WEBHOOK_URL') })
+    expect(mockedRequest).not.toHaveBeenCalled()
+  })
+
   it('omits idleWindow for completed-submission registrations', async () => {
     const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/NEW', formId: 'f1', event: 'submission_created' })
     respond(() => ({ subscriptionId: 'sub_new' }))

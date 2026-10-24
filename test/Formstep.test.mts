@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { NodeApiError, NodeOperationError } from 'n8n-workflow'
 
 vi.mock('../nodes/Formstep/GenericFunctions', () => ({
@@ -142,7 +142,7 @@ describe('Formstep node description', () => {
   it('is registered next to the trigger in package.json', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string; n8n: { nodes: string[] } }
 
-    expect(pkg.version).toBe('0.12.1')
+    expect(pkg.version).toBe('0.13.0')
     expect(pkg.n8n.nodes).toEqual(['dist/nodes/Formstep/Formstep.node.js', 'dist/nodes/Formstep/FormstepTrigger.node.js'])
   })
 
@@ -180,7 +180,7 @@ describe('Formstep node description', () => {
     expect(workflow.active).toBe(false)
     const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
     const wait = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.wait')
-    expect(create).toMatchObject({ typeVersion: 2, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
+    expect(create).toMatchObject({ typeVersion: 3, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
     expect(create?.parameters.formId).toBeUndefined()
     const blocks = JSON.parse(create?.parameters.formBlocks as string) as Array<{ type: string; key?: string }>
     expect(blocks.filter((block) => block.type === 'hiddenField').map((block) => block.key)).toEqual(['first_name', 'case_id'])
@@ -188,6 +188,85 @@ describe('Formstep node description', () => {
     expect(workflow.connections[create!.name]?.main[0]?.[0]?.node).toBe(wait!.name)
   })
 })
+describe('example workflows', () => {
+  interface ExampleNode {
+    name: string
+    type: string
+    typeVersion: number
+    parameters: Record<string, unknown>
+    credentials?: unknown
+  }
+  interface Example {
+    nodes: ExampleNode[]
+    connections: Record<string, Record<string, Array<Array<{ node: string; type: string }>>>>
+    pinData: Record<string, unknown>
+    active: boolean
+  }
+
+  const directory = new URL('../examples/', import.meta.url)
+  const examples = readdirSync(directory)
+    .filter((file) => file.endsWith('.json'))
+    .map((file) => [file, JSON.parse(readFileSync(new URL(file, directory), 'utf8')) as Example] as const)
+
+  function example(file: string): Example {
+    const found = examples.find(([name]) => name === file)
+    if (!found) throw new Error(`examples/${file} is missing`)
+    return found[1]
+  }
+
+  it.each(examples)('%s imports inactive, without credentials, and connects only nodes it has', (_file, workflow) => {
+    expect(workflow.active).toBe(false)
+    const names = new Set(workflow.nodes.map((node) => node.name))
+    for (const [from, outputs] of Object.entries(workflow.connections)) {
+      expect(names.has(from)).toBe(true)
+      for (const target of Object.values(outputs).flat(2)) expect(names.has(target.node)).toBe(true)
+    }
+    expect(workflow.nodes.every((node) => node.credentials === undefined)).toBe(true)
+  })
+
+  it.each(examples)('%s uses node version 3 and creates test requests, so a first run emails nobody', (_file, workflow) => {
+    for (const node of workflow.nodes.filter((candidate) => /^n8n-nodes-formstep\.formstep(Tool)?$/.test(candidate.type))) {
+      expect(node.typeVersion).toBe(3)
+      if (node.parameters.operation === 'create') expect(node.parameters.additionalFields).toMatchObject({ test: true })
+    }
+  })
+
+  it('asks a manager to approve with the receipt attached, waits, and routes every outcome', () => {
+    const workflow = example('formstep-expense-approval.json')
+    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
+    expect(create?.parameters).toMatchObject({ operation: 'create', waitForOutcome: true, documents: { values: [{ binaryProperty: 'data' }] } })
+    const route = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.switch')
+    expect(workflow.connections[route!.name]?.main).toHaveLength(4)
+  })
+
+  it('reads the invoice with a pinned AI result and keeps the PDF for the supplier', () => {
+    const workflow = example('formstep-invoice-ai-confirm.json')
+    expect(Object.keys(workflow.pinData)).toEqual(['Read the invoice with AI'])
+    const merge = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.merge')
+    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
+    expect(workflow.connections[merge!.name]?.main[0]?.[0]?.node).toBe(create!.name)
+    expect(create?.parameters).toMatchObject({ waitForOutcome: true, documents: { values: [{ binaryProperty: 'data' }] } })
+  })
+
+  it('builds the claim form from a checklist and files each upload', () => {
+    const workflow = example('formstep-claim-documents.json')
+    const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
+    expect(create?.parameters).toMatchObject({ formSource: 'inline', formBlocks: '={{ JSON.stringify($json.blocks) }}', waitForOutcome: true })
+    expect(workflow.nodes.some((node) => node.type === 'n8n-nodes-base.readWriteFile')).toBe(true)
+  })
+
+  it('gives the agent Formstep tools with one $fromAI key per value', () => {
+    const workflow = example('formstep-ai-agent-onboarding.json')
+    const tools = workflow.nodes.filter((node) => node.type === 'n8n-nodes-formstep.formstepTool')
+    expect(tools.map((tool) => tool.parameters.operation)).toEqual(['create', 'get', 'remind'])
+    for (const tool of tools) {
+      expect(workflow.connections[tool.name]?.ai_tool?.[0]?.[0]?.type).toBe('ai_tool')
+      const keys = [...JSON.stringify(tool.parameters).matchAll(/\$fromAI\('([a-z_]+)'/g)].map((match) => match[1])
+      expect(new Set(keys).size).toBe(keys.length)
+    }
+  })
+})
+
 describe('Formstep.methods.loadOptions', () => {
   const fields = [
     { key: 'company_name', type: 'text', title: 'Company', prefillable: true },
@@ -219,6 +298,7 @@ describe('Formstep.methods.loadOptions', () => {
     const ctx = makeLoadOptionsContext({ formId: 'form_1' })
 
     expect(await new Formstep().methods.loadOptions.getDocumentsKeys.call(ctx as never)).toEqual([
+      { name: 'Automatic', value: '', description: "The form's only Documents block. Pick one when the form has several." },
       { name: 'Your contract (contract_documents)', value: 'contract_documents' },
     ])
   })
@@ -305,6 +385,14 @@ describe('Formstep.execute: create', () => {
 
   it('fails when waiting for the outcome and n8n has no resume URL', async () => {
     await expect(run([{ ...CREATE, waitForOutcome: true }])).rejects.toBeInstanceOf(NodeOperationError)
+    expect(mockedRequest).not.toHaveBeenCalled()
+  })
+
+  it('names the n8n setting to fix when the resume URL is not HTTPS', async () => {
+    const created = run([{ ...CREATE, waitForOutcome: true }], { resumeUrl: 'http://localhost:5678/webhook-waiting/123' })
+
+    await expect(created).rejects.toThrow("Formstep calls back HTTPS addresses only, and this execution's resume URL is http://localhost:5678/webhook-waiting/123")
+    await expect(created).rejects.toMatchObject({ description: expect.stringContaining('WEBHOOK_URL') })
     expect(mockedRequest).not.toHaveBeenCalled()
   })
 

@@ -15,9 +15,12 @@ export function isPrefillable(field: FormField): boolean {
   return field.prefillable !== false
 }
 
-/** How a field reads in a picker: its question and, since workflows address it by key, the key. */
+/**
+ * How a field reads in a picker: its question and, since workflows address it
+ * by key, the key. A hidden field is titled with its key, so it reads once.
+ */
 function fieldLabel(field: FormField): string {
-  return field.title ? `${field.title} (${field.key})` : field.key
+  return field.title && field.title !== field.key ? `${field.title} (${field.key})` : field.key
 }
 
 export function fieldOption(field: FormField): INodePropertyOptions {

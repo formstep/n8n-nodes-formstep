@@ -229,6 +229,14 @@ function readResumeUrl(context: IExecuteFunctions, itemIndex: number): string {
       { itemIndex }
     )
   }
+  // Formstep calls back HTTPS addresses only; an n8n without a public address resumes on http://localhost.
+  if (!resumeUrl.startsWith('https://')) {
+    throw new NodeOperationError(context.getNode(), `Formstep calls back HTTPS addresses only, and this execution's resume URL is ${resumeUrl}`, {
+      itemIndex,
+      description:
+        "Set n8n's WEBHOOK_URL to its public HTTPS address and restart n8n, or turn off 'Wait for the Outcome'. See https://docs.formstep.io/guides/n8n/install-the-node/#public-address",
+    })
+  }
   return resumeUrl
 }
 

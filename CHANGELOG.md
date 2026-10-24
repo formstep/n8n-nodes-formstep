@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented here.
 
+## 0.13.0 - 2026-10-24
+
+- **Formstep node version 3**, the default for new nodes, adds **Simplify** to **Get** and **Get Many**, on by default. A request comes back as ten fields: `id`, `status`, `outcome`, `externalId`, `formId`, `recipientEmail`, `answers` (Get only, once completed), and `createdAt`, `expiresAt` and `completedAt` as ISO 8601 strings instead of Unix milliseconds. It keeps an AI agent's context small when the node runs as a tool. Turn Simplify off for the whole request. Nodes saved with version 1 or 2 return the whole request as before.
+- When n8n has no public HTTPS address, **Execute step** and **Publish** on the trigger, and **Create** with **Wait for the Outcome**, now stop before calling Formstep with a message that names the URL n8n handed out and the setting to change (`WEBHOOK_URL`, `N8N_EDITOR_BASE_URL`), instead of Formstep's `VALIDATION_ERROR: targetUrl must use https`.
+- The **Documents Block** picker lists **Automatic**, the default: the form's only Documents block. n8n showed the empty default as an unselected field with a warning.
+- The **Fields** mapper names a hidden field once (`reference · context`) instead of `reference (reference) · context`.
+- Four new example workflows, each with a guide on docs.formstep.io: `formstep-expense-approval.json` (a manager approves an expense with the receipt attached), `formstep-invoice-ai-confirm.json` (AI reads an invoice PDF and the supplier confirms it), `formstep-claim-documents.json` (a form built from a checklist, every upload filed) and `formstep-ai-agent-onboarding.json` (an AI Agent with Formstep tools). Every example now uses node version 3, creates test requests and uses example.com addresses.
+- The README is shorter and links to the guides; building, local testing and releasing moved to `CONTRIBUTING.md`.
+- `@n8n/node-cli` 0.54 and Vitest 5.0.5. The package still has no runtime dependency.
+
+## 0.12.1 - 2026-10-16
+
+The example workflow `examples/formstep-request-new-form.json` and its README section, listed under 0.12.0 below, shipped in this version. No code change.
+
 ## 0.12.0 - 2026-10-16
 
 - **Create** on node version 2 takes a new **Form Source** parameter. **Published Form**, the default, works as before. **New Form** sends the form's definition in place of a form ID: a **Form Name**, **Form Blocks** as a JSON array, and under **Form Options** a logo, cover, emoji, form language, theme, settings and translations. Formstep builds the form, publishes it and creates the request in one call, and the same definition again reuses that form. **Prefill** and **Context** are JSON objects keyed by block key, and **Read-Only Field Keys** a comma-separated list. The response adds the new form's `form` summary with its field keys. Needs a Formstep backend whose inline forms carry their own brand (`logo`, `cover`, `emoji`) and take no `baseline`.

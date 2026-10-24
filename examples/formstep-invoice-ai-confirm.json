@@ -1,0 +1,482 @@
+{
+  "name": "Read an invoice with AI and have the supplier confirm it",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000028",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000029",
+              "name": "invoiceUrl",
+              "value": "https://docs.formstep.io/guides/n8n/samples/invoice.pdf",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000030",
+              "name": "supplierEmail",
+              "value": "billing@fjord-office.example",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000031",
+      "name": "Invoice"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.invoiceUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000032",
+      "name": "Download the invoice"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [660, 120],
+      "id": "a1b2c3d4-0000-4000-8000-000000000033",
+      "name": "Extract the text"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "supplier_name",
+              "type": "string",
+              "description": "The company that issued the invoice",
+              "required": true
+            },
+            {
+              "name": "invoice_number",
+              "type": "string",
+              "description": "The invoice number, as printed",
+              "required": true
+            },
+            {
+              "name": "invoice_date",
+              "type": "date",
+              "description": "The invoice date, as YYYY-MM-DD",
+              "required": true
+            },
+            {
+              "name": "due_date",
+              "type": "date",
+              "description": "The payment due date, as YYYY-MM-DD",
+              "required": true
+            },
+            {
+              "name": "total_amount",
+              "type": "number",
+              "description": "The total to pay, including VAT, as a number without currency",
+              "required": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [880, 120],
+      "id": "a1b2c3d4-0000-4000-8000-000000000034",
+      "name": "Read the invoice with AI"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5-5",
+          "cachedResultName": "Claude Sonnet 5.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [880, 340],
+      "id": "a1b2c3d4-0000-4000-8000-000000000035",
+      "name": "Claude"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1120, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000036",
+      "name": "Keep the file"
+    },
+    {
+      "parameters": {
+        "resource": "request",
+        "operation": "create",
+        "formId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "recipientEmail": "={{ $('Invoice').item.json.supplierEmail }}",
+        "fields": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "supplier_name": "={{ $json.output.supplier_name }}",
+            "invoice_number": "={{ $json.output.invoice_number }}",
+            "invoice_date": "={{ $json.output.invoice_date }}",
+            "due_date": "={{ $json.output.due_date }}",
+            "total_amount": "={{ $json.output.total_amount }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "supplier_name",
+              "displayName": "Supplier (supplier_name)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "Invoice Number (invoice_number)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "invoice_date",
+              "displayName": "Invoice Date (invoice_date)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "dateTime"
+            },
+            {
+              "id": "due_date",
+              "displayName": "Due Date (due_date)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "dateTime"
+            },
+            {
+              "id": "total_amount",
+              "displayName": "Total Amount (total_amount)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "number"
+            },
+            {
+              "id": "confirmed",
+              "displayName": "I confirm these details are correct (confirmed)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "boolean",
+              "removed": true
+            },
+            {
+              "id": "notes",
+              "displayName": "Notes (notes)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "readonly": [],
+        "documents": {
+          "values": [
+            {
+              "binaryProperty": "data",
+              "name": "=Invoice {{ $json.output.invoice_number }}",
+              "field": ""
+            }
+          ]
+        },
+        "waitForOutcome": true,
+        "additionalFields": {
+          "delivery": "email",
+          "externalId": "={{ $json.output.invoice_number }}-{{ $execution.id }}",
+          "expiresAt": "={{ $now.plus({ days: 5 }).toISO() }}",
+          "test": true
+        }
+      },
+      "type": "n8n-nodes-formstep.formstep",
+      "typeVersion": 3,
+      "position": [1340, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000037",
+      "name": "Ask the supplier to confirm"
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1560, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000039",
+      "name": "Wait for the supplier",
+      "webhookId": "3a17b0d1-0000-4000-8000-000000000038"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0ffee00-0000-4000-8000-0000000000a1",
+              "leftValue": "={{ $json.body.type }}",
+              "rightValue": "request.completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1780, 0],
+      "id": "a1b2c3d4-0000-4000-8000-000000000040",
+      "name": "Confirmed?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Compare what the AI read with what the supplier confirmed.\nconst read = $('Read the invoice with AI').item.json.output\nconst confirmed = $json.body.data.answers\nconst corrected = Object.keys(read).filter((key) => String(read[key]) !== String(confirmed[key]))\nreturn { json: { invoice: confirmed, corrected, notes: confirmed.notes ?? null } }"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, -100],
+      "id": "a1b2c3d4-0000-4000-8000-000000000041",
+      "name": "What the supplier corrected"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000042",
+              "name": "to",
+              "value": "={{ $('Invoice').item.json.supplierEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "5e75e75e-0000-4000-8000-000000000043",
+              "name": "message",
+              "value": "=We still need you to confirm invoice {{ $('Read the invoice with AI').item.json.output.invoice_number }} ({{ $json.body.type }}).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2000, 120],
+      "id": "a1b2c3d4-0000-4000-8000-000000000044",
+      "name": "No answer: chase the supplier"
+    }
+  ],
+  "pinData": {
+    "Read the invoice with AI": [
+      {
+        "json": {
+          "output": {
+            "supplier_name": "Fjord Office Supplies AS",
+            "invoice_number": "INV-2026-0187",
+            "invoice_date": "2026-10-20",
+            "due_date": "2026-11-03",
+            "total_amount": 27235
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice": {
+      "main": [
+        [
+          {
+            "node": "Download the invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the invoice": {
+      "main": [
+        [
+          {
+            "node": "Extract the text",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keep the file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract the text": {
+      "main": [
+        [
+          {
+            "node": "Read the invoice with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep the file": {
+      "main": [
+        [
+          {
+            "node": "Ask the supplier to confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the supplier to confirm": {
+      "main": [
+        [
+          {
+            "node": "Wait for the supplier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for the supplier": {
+      "main": [
+        [
+          {
+            "node": "Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "What the supplier corrected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No answer: chase the supplier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the invoice with AI": {
+      "main": [
+        [
+          {
+            "node": "Keep the file",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Read the invoice with AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1c2d3e4-0002-4000-8000-000000000002",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

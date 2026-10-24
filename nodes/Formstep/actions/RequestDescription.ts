@@ -10,10 +10,12 @@ const EXPRESSION_HINT = 'Choose from the list, or specify an ID using an <a href
  * Version 1 keeps the parameters its workflows were saved with: a form
  * dropdown, a Request ID text box, and key/value Prefill and Context lists.
  * Version 2 picks the form and the request with a searchable list or an ID,
- * and maps every field of the form in one typed Fields mapper.
+ * and maps every field of the form in one typed Fields mapper. Version 3
+ * adds 'Simplify' to Get and Get Many, on by default.
  */
 const V1: IDisplayOptions['show'] = { '@version': [1] }
 const V2: IDisplayOptions['show'] = { '@version': [{ _cnd: { gte: 2 } }] }
+const V3: IDisplayOptions['show'] = { '@version': [{ _cnd: { gte: 3 } }] }
 
 function showFor(operations: RequestOperation[], extra: IDisplayOptions['show'] = {}): IDisplayOptions {
   return { show: { resource: ['request'], operation: operations, ...extra } }
@@ -406,7 +408,7 @@ const createProperties: INodeProperties[] = [
             typeOptions: { loadOptionsMethod: 'getDocumentsKeys', loadOptionsDependsOn: ['formId'] },
             default: '',
             description:
-              'The Documents block the file goes into. Leave empty when the form has one. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+              'The Documents block the file goes into; Automatic picks the only one on the form. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
           },
         ],
       },
@@ -656,4 +658,12 @@ export const requestProperties: INodeProperties[] = [
   ...createProperties,
   ...requestIdProperties,
   ...getAllProperties,
+  {
+    displayName: 'Simplify',
+    name: 'simplify',
+    type: 'boolean',
+    displayOptions: showFor(['get', 'getAll'], V3),
+    default: true,
+    description: 'Whether to return a simplified version of the response instead of the raw data',
+  },
 ]
