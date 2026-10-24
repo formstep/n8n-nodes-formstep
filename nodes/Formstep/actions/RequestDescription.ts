@@ -408,7 +408,7 @@ const createProperties: INodeProperties[] = [
             typeOptions: { loadOptionsMethod: 'getDocumentsKeys', loadOptionsDependsOn: ['formId'] },
             default: '',
             description:
-              'The Documents block the file goes into. Leave empty when the form has one. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+              'The Documents block the file goes into; Automatic picks the only one on the form. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
           },
         ],
       },

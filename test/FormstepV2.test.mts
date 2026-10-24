@@ -205,7 +205,10 @@ describe('Formstep.methods.resourceMapping.getMappingFields', () => {
 
     const keys = await new Formstep().methods.loadOptions.getDocumentsKeys.call(ctx as never)
 
-    expect(keys).toEqual([{ name: 'Your contract (contract)', value: 'contract' }])
+    expect(keys).toEqual([
+      { name: 'Automatic', value: '', description: "The form's only Documents block. Pick one when the form has several." },
+      { name: 'Your contract (contract)', value: 'contract' },
+    ])
   })
 })
 

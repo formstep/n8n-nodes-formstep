@@ -54,8 +54,15 @@ export const loadOptions = {
     return currentFieldOptions(this, (field) => field.context === true)
   },
 
+  /**
+   * The form's Documents blocks, after 'Automatic': the empty value the
+   * parameter defaults to, which Formstep reads as the form's only block. Listed
+   * so the default reads as a choice instead of a missing one.
+   */
   async getDocumentsKeys(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-    return currentFieldOptions(this, (field) => field.type === 'documents')
+    const blocks = await currentFieldOptions(this, (field) => field.type === 'documents')
+    if (blocks.length === 0) return []
+    return [{ name: 'Automatic', value: '', description: "The form's only Documents block. Pick one when the form has several." }, ...blocks]
   },
 }
 
