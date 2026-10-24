@@ -75,7 +75,6 @@
         "inlineContext": "={{ JSON.stringify({ first_name: $json.firstName, claim_id: $json.claimId }) }}",
         "inlineReadonly": "",
         "formOptions": {
-          "emoji": "📎",
           "cover": "{ \"type\": \"color\", \"color\": \"#1f6f5c\" }"
         },
         "recipientEmail": "={{ $json.email }}",
