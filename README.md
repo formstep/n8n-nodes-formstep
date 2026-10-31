@@ -29,7 +29,12 @@ You need n8n 2.30 or newer, and an n8n that Formstep can reach over HTTPS: set `
 
 ## Connect
 
-Create a **Formstep OAuth2 API** credential, select **Connect my account**, sign in to Formstep and pick the workspace n8n may use. There is no key to copy: n8n registers itself with Formstep, and the connection refreshes itself while you use it at least once every 30 days. See [Connect Formstep to n8n](https://docs.formstep.io/guides/n8n/connect/).
+Each node has an **Authentication** choice:
+
+- **API Key**, the default, works on n8n Cloud and self-hosted n8n. In Formstep, open **OAuth and API Keys**, select **Create token**, set **Expiration** to **No expiration** and copy the key. In n8n, create a **Formstep API** credential and paste it. A key reaches one workspace. A key created with 30 or 90 days stops working on that date.
+- **OAuth2** works on self-hosted n8n only. Create a **Formstep OAuth2 API** credential, select **Connect my account**, sign in to Formstep and pick the workspace n8n may use. n8n registers itself with Formstep, and the connection refreshes itself while you use it at least once every 30 days.
+
+Nodes saved before version 0.14.0 keep their OAuth2 credential. See [Connect Formstep to n8n](https://docs.formstep.io/guides/n8n/connect/).
 
 ## Nodes
 
@@ -53,7 +58,7 @@ Create a **Formstep OAuth2 API** credential, select **Connect my account**, sign
 - Answers arrive under their field keys, as `{{ $json.data.answers.company_name }}` in a trigger and `{{ $json.body.data.answers.company_name }}` after a Wait node, with the readable text under `display`. The outcome of a Decision question is `data.request.outcome`: `approve`, `changes` or `decline`. See the [webhooks reference](https://docs.formstep.io/developers/webhooks-reference).
 - **Get** and **Get Many** return ten fields per request with **Simplify**, on by default from node version 3, with ISO 8601 dates. Turned off, they return the whole request, with Unix-millisecond timestamps.
 - A failed call stops the node with the Formstep code and message, such as `VALIDATION_ERROR: "email" is not a valid email address`, with the reason and the field in the description. With **Continue on Fail**, the same text is in the item's `error`.
-- Workflows saved with node version 1 or 2 keep working unchanged. New nodes are version 3.
+- Workflows saved with an older node version keep working unchanged. New Formstep nodes are version 4 and new triggers version 1.1; both only change the default Authentication to API Key.
 
 ## Resources
 

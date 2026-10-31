@@ -8,7 +8,8 @@ import type {
 } from 'n8n-workflow'
 import { NodeApiError } from 'n8n-workflow'
 
-import { FORMSTEP_API_RESOURCE_URL, FORMSTEP_CREDENTIAL_TYPE } from './constants'
+import { credentialTypeOf } from './Authentication'
+import { FORMSTEP_API_RESOURCE_URL } from './constants'
 
 export type FormstepRpcContext = IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions | IWebhookFunctions
 
@@ -91,7 +92,7 @@ function formstepError(context: FormstepRpcContext, error: FormstepApiError, htt
  * Call one Formstep JSON-RPC method and return its `data`.
  *
  * The API answers an error with a non-2xx status and an `{ ok: false, error }`
- * body. n8n's authenticated request helper refreshes the OAuth token on a 401
+ * body. n8n's authenticated request helper refreshes an OAuth token on a 401
  * and throws a NodeApiError for any other non-2xx status, titled with a generic
  * status message and holding the body in `context.data`; that body is unwrapped
  * here so the Formstep code and message reach the workflow. A 200 that carries
@@ -102,7 +103,8 @@ export async function formstepApiRequest<T = unknown>(
   method: string,
   params: Record<string, unknown> = {}
 ): Promise<T> {
-  const credentials = await context.getCredentials(FORMSTEP_CREDENTIAL_TYPE)
+  const credentialType = credentialTypeOf(context)
+  const credentials = await context.getCredentials(credentialType)
   const resourceUrl = String(credentials.serverUrl ?? FORMSTEP_API_RESOURCE_URL).replace(/\/+$/, '')
 
   const options: IHttpRequestOptions = {
@@ -118,7 +120,7 @@ export async function formstepApiRequest<T = unknown>(
     // The HTTP helper returns untyped JSON at this external API boundary.
     response = (await context.helpers.httpRequestWithAuthentication.call(
       context,
-      FORMSTEP_CREDENTIAL_TYPE,
+      credentialType,
       options
     )) as FormstepRpcResponse<T> | null
   } catch (error) {

@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NodeApiError } from 'n8n-workflow'
 
 import { FormstepTrigger } from '../nodes/Formstep/FormstepTrigger.node'
-import { ACCESS_TOKEN, FakeFormstep, makeHelpers } from './fakeFormstep.mts'
+import { FakeFormstep, makeHelpers, type Authentication } from './fakeFormstep.mts'
 
 const WEBHOOK_URL = 'https://n8n.example.com/webhook/formstep'
 
@@ -25,15 +25,18 @@ beforeAll(async () => {
 
 afterAll(() => formstep.stop())
 
-function makeHookContext(options: { event?: string; idleWindow?: string; staticData?: Record<string, unknown>; accessToken?: string } = {}) {
+function makeHookContext(
+  options: { event?: string; idleWindow?: string; staticData?: Record<string, unknown>; authentication?: Authentication; token?: string } = {}
+) {
   const staticData = options.staticData ?? {}
   return {
-    ...makeHelpers(formstep.baseUrl, options.accessToken ?? ACCESS_TOKEN),
+    ...makeHelpers(formstep.baseUrl, { authentication: options.authentication, token: options.token }),
     getNodeWebhookUrl: vi.fn().mockReturnValue(WEBHOOK_URL),
     getNodeParameter: vi.fn((name: string) => {
       if (name === 'formId') return 'form_live'
       if (name === 'event') return options.event ?? 'submission_created'
       if (name === 'idleWindow') return options.idleWindow ?? '12h'
+      if (name === 'authentication') return options.authentication ?? 'apiKey'
       return undefined
     }),
     getWorkflowStaticData: vi.fn().mockReturnValue(staticData),
@@ -186,9 +189,18 @@ describe('Formstep Trigger lifecycle', () => {
     expect(ctx.staticData).toEqual({})
   })
 
+  it('registers its webhook with the OAuth2 credential on a trigger saved before API keys', async () => {
+    const trigger = new FormstepTrigger()
+    const ctx = makeHookContext({ authentication: 'oAuth2', event: 'request_canceled' })
+
+    expect(await trigger.webhookMethods.default.create.call(ctx as never)).toBe(true)
+    expect(ctx.staticData.subscriptionId).toEqual(expect.any(String))
+    expect(await trigger.webhookMethods.default.delete.call(ctx as never)).toBe(true)
+  })
+
   it('surfaces an expired token as a 401 NodeApiError so n8n refreshes the credential', async () => {
     const trigger = new FormstepTrigger()
-    const ctx = makeHookContext({ accessToken: 'fbo_expired' })
+    const ctx = makeHookContext({ authentication: 'oAuth2', token: 'fbo_expired' })
 
     await expect(trigger.webhookMethods.default.checkExists.call(ctx as never)).rejects.toSatisfy((error: unknown) => {
       return error instanceof NodeApiError && error.httpCode === '401'

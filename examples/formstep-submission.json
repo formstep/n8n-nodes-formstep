@@ -7,7 +7,7 @@
         "event": "submission_created"
       },
       "type": "n8n-nodes-formstep.formstepTrigger",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [0, 0],
       "id": "16e911f0-6385-4acc-8286-1afb15eb035c",
       "name": "Formstep Trigger"

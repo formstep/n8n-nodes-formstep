@@ -222,7 +222,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstep",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [660, 0],
       "id": "a1b2c3d4-0000-4000-8000-000000000012",
       "name": "Ask the manager"

@@ -107,7 +107,21 @@ describe('Formstep node description', () => {
     expect(node.description.description).not.toContain('formstep')
     expect(node.description.usableAsTool).toBe(true)
     expect(node.description.icon).toEqual({ light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' })
-    expect(node.description.credentials).toEqual([{ name: 'formstepOAuth2Api', required: true }])
+    expect(node.description.credentials).toEqual([
+      { name: 'formstepApi', required: true, displayOptions: { show: { authentication: ['apiKey'] } } },
+      { name: 'formstepOAuth2Api', required: true, displayOptions: { show: { authentication: ['oAuth2'] } } },
+    ])
+  })
+
+  it('defaults new nodes to an API key and keeps OAuth2 for nodes saved before version 4', () => {
+    const node = new Formstep()
+    const authentication = node.description.properties.filter((property) => property.name === 'authentication')
+
+    expect(authentication.map((property) => [property.default, property.displayOptions?.show?.['@version']])).toEqual([
+      ['oAuth2', [{ _cnd: { lt: 4 } }]],
+      ['apiKey', [{ _cnd: { gte: 4 } }]],
+    ])
+    expect(authentication[0].options?.map((option) => 'value' in option && option.value)).toEqual(['apiKey', 'oAuth2'])
   })
 
   it('offers the Request resource with its six operations', () => {
@@ -180,7 +194,7 @@ describe('Formstep node description', () => {
     expect(workflow.active).toBe(false)
     const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
     const wait = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.wait')
-    expect(create).toMatchObject({ typeVersion: 3, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
+    expect(create).toMatchObject({ typeVersion: 4, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
     expect(create?.parameters.formId).toBeUndefined()
     const blocks = JSON.parse(create?.parameters.formBlocks as string) as Array<{ type: string; key?: string }>
     expect(blocks.filter((block) => block.type === 'hiddenField').map((block) => block.key)).toEqual(['first_name', 'case_id'])
@@ -224,9 +238,12 @@ describe('example workflows', () => {
     expect(workflow.nodes.every((node) => node.credentials === undefined)).toBe(true)
   })
 
-  it.each(examples)('%s uses node version 3 and creates test requests, so a first run emails nobody', (_file, workflow) => {
+  it.each(examples)('%s uses the newest node versions and creates test requests, so a first run emails nobody', (_file, workflow) => {
+    for (const node of workflow.nodes.filter((candidate) => candidate.type === 'n8n-nodes-formstep.formstepTrigger')) {
+      expect(node.typeVersion).toBe(1.1)
+    }
     for (const node of workflow.nodes.filter((candidate) => /^n8n-nodes-formstep\.formstep(Tool)?$/.test(candidate.type))) {
-      expect(node.typeVersion).toBe(3)
+      expect(node.typeVersion).toBe(4)
       if (node.parameters.operation === 'create') expect(node.parameters.additionalFields).toMatchObject({ test: true })
     }
   })

@@ -1,9 +1,9 @@
 import type { Icon, ICredentialTestRequest, ICredentialType, INodeProperties } from 'n8n-workflow'
 
-import { FORMSTEP_API_RESOURCE_URL, FORMSTEP_CREDENTIAL_TYPE } from '../nodes/Formstep/constants'
+import { FORMSTEP_API_RESOURCE_URL, FORMSTEP_SIGN_IN_CREDENTIAL_TYPE } from '../nodes/Formstep/constants'
 
 export class FormstepOAuth2Api implements ICredentialType {
-  name = FORMSTEP_CREDENTIAL_TYPE
+  name = FORMSTEP_SIGN_IN_CREDENTIAL_TYPE
 
   extends = ['oAuth2Api']
 

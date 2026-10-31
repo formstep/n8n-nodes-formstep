@@ -150,6 +150,19 @@ describe('Formstep Trigger description', () => {
     })
   })
 
+  it('defaults new triggers to an API key and keeps OAuth2 for triggers saved as version 1', () => {
+    const trigger = new FormstepTrigger()
+    const authentication = trigger.description.properties.filter((property) => property.name === 'authentication')
+
+    expect(trigger.description.version).toEqual([1, 1.1])
+    expect(trigger.description.defaultVersion).toBe(1.1)
+    expect(authentication.map((property) => [property.default, property.displayOptions?.show?.['@version']])).toEqual([
+      ['oAuth2', [{ _cnd: { lt: 1.1 } }]],
+      ['apiKey', [{ _cnd: { gte: 1.1 } }]],
+    ])
+    expect(trigger.description.credentials?.map((credential) => credential.name)).toEqual(['formstepApi', 'formstepOAuth2Api'])
+  })
+
   it('offers the default event first and idle windows shortest first', () => {
     const trigger = new FormstepTrigger()
     const eventProperty = trigger.description.properties.find((property) => property.name === 'event')

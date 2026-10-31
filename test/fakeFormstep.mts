@@ -5,6 +5,12 @@ import { NodeApiError } from 'n8n-workflow'
 import { vi } from 'vitest'
 
 export const ACCESS_TOKEN = 'fbo_access'
+export const API_KEY = 'fs_test_key'
+
+/** The credential type n8n hands the request helper for each Authentication choice. */
+const CREDENTIAL_TYPE_OF = { apiKey: 'formstepApi', oAuth2: 'formstepOAuth2Api' } as const
+
+export type Authentication = keyof typeof CREDENTIAL_TYPE_OF
 const IDLE_WINDOWS = ['12h', '1d', '3d', '1w']
 const SUBMISSION_EVENT_TYPES = ['submission_created', 'submission_updated', 'submission_abandoned']
 const REQUEST_EVENT_TYPES = ['request_completed', 'request_expired', 'request_canceled']
@@ -104,7 +110,7 @@ export class FakeFormstep {
       if (request.url !== '/api/v1' || request.method !== 'POST') {
         return reply(404, { ok: false, error: { code: 'NOT_FOUND', message: 'No route' } })
       }
-      if (request.headers.authorization !== `Bearer ${ACCESS_TOKEN}`) {
+      if (request.headers.authorization !== `Bearer ${ACCESS_TOKEN}` && request.headers.authorization !== `Bearer ${API_KEY}`) {
         return reply(401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid token' } })
       }
       const { method, params = {} } = JSON.parse(content) as { method: string; params?: Record<string, unknown> }
@@ -407,15 +413,22 @@ const NODE = { name: 'Formstep Trigger', type: 'formstepTrigger', typeVersion: 1
  * Like n8n's own helper, a non-2xx status becomes a NodeApiError carrying the
  * status as `httpCode`, so the node's 404-on-delete handling is exercised for real.
  */
-export function makeHelpers(baseUrl: string, accessToken = ACCESS_TOKEN) {
+export function makeHelpers(baseUrl: string, options: { authentication?: Authentication; token?: string } = {}) {
+  const authentication = options.authentication ?? 'apiKey'
+  const token = options.token ?? (authentication === 'apiKey' ? API_KEY : ACCESS_TOKEN)
   return {
     getCredentials: vi.fn().mockResolvedValue({ serverUrl: `${baseUrl}/api/v1` }),
     getNode: vi.fn().mockReturnValue(NODE),
+    getNodeParameter: vi.fn((name: string) => (name === 'authentication' ? authentication : undefined)),
     helpers: {
-      httpRequestWithAuthentication: async function (this: unknown, _credential: string, options: { url: string; body: unknown }) {
+      httpRequestWithAuthentication: async function (this: unknown, credential: string, options: { url: string; body: unknown }) {
+        // n8n signs the request with the credential the node names, so a wrong name would fail there too.
+        if (credential !== CREDENTIAL_TYPE_OF[authentication]) {
+          throw new Error(`Expected the ${CREDENTIAL_TYPE_OF[authentication]} credential, got ${credential}`)
+        }
         const response = await fetch(options.url, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify(options.body),
         })
         const body: unknown = await response.json()

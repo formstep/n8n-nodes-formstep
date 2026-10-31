@@ -3,9 +3,10 @@ import { NodeApiError } from 'n8n-workflow'
 
 import { formstepApiRequest } from '../nodes/Formstep/GenericFunctions'
 
-function makeContext(httpResponse: unknown, opts?: { serverUrl?: string }) {
+function makeContext(httpResponse: unknown, opts?: { serverUrl?: string; authentication?: string }) {
   const httpRequestWithAuthentication = vi.fn().mockResolvedValue(httpResponse)
   const ctx = {
+    getNodeParameter: vi.fn((name: string) => (name === 'authentication' ? (opts?.authentication ?? 'oAuth2') : undefined)),
     getCredentials: vi.fn().mockResolvedValue({
       serverUrl: opts?.serverUrl ?? 'https://api.formstep.io/api/v1',
     }),
@@ -43,6 +44,32 @@ describe('formstepApiRequest', () => {
     // Non-2xx statuses must keep throwing inside n8n's helper: that is what
     // triggers the OAuth refresh on a 401.
     expect(options).not.toHaveProperty('ignoreHttpStatusErrors')
+  })
+
+  it('signs the call with the API key credential when the node authenticates with an API key', async () => {
+    const { ctx, httpRequestWithAuthentication } = makeContext({ ok: true, data: null }, { authentication: 'apiKey' })
+
+    await formstepApiRequest(ctx as never, 'me.get')
+
+    expect(ctx.getCredentials).toHaveBeenCalledWith('formstepApi')
+    expect(httpRequestWithAuthentication.mock.calls[0][0]).toBe('formstepApi')
+  })
+
+  it('reads the Authentication parameter of the first item in an execution', async () => {
+    const { ctx, httpRequestWithAuthentication } = makeContext({ ok: true, data: null }, { authentication: 'apiKey' })
+    const execution = { ...ctx, getInputData: vi.fn().mockReturnValue([{ json: {} }]) }
+
+    await formstepApiRequest(execution as never, 'me.get')
+
+    expect(ctx.getNodeParameter).toHaveBeenCalledWith('authentication', 0)
+    expect(httpRequestWithAuthentication.mock.calls[0][0]).toBe('formstepApi')
+  })
+
+  it('rejects an Authentication value it has no credential for', async () => {
+    const { ctx, httpRequestWithAuthentication } = makeContext({ ok: true, data: null }, { authentication: 'basicAuth' })
+
+    await expect(formstepApiRequest(ctx as never, 'me.get')).rejects.toThrow('The authentication "basicAuth" is not supported')
+    expect(httpRequestWithAuthentication).not.toHaveBeenCalled()
   })
 
   it('strips trailing slashes from the configured API base URL', async () => {

@@ -149,7 +149,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [440, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000067",
       "name": "Send the onboarding form"
@@ -168,7 +168,7 @@
         "simplify": true
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [600, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000068",
       "name": "Check an onboarding"
@@ -186,7 +186,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [760, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000069",
       "name": "Remind the client"

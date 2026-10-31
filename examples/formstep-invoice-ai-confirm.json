@@ -245,7 +245,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstep",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [1340, 0],
       "id": "a1b2c3d4-0000-4000-8000-000000000037",
       "name": "Ask the supplier to confirm"

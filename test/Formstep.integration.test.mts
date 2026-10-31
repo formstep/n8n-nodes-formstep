@@ -35,7 +35,7 @@ function makeExecuteContext(parameters: Record<string, unknown>) {
   return {
     ...makeHelpers(formstep.baseUrl),
     getInputData: vi.fn().mockReturnValue([{ json: {} }]),
-    getNodeParameter: vi.fn((name: string, _itemIndex: number, fallback?: unknown) => parameters[name] ?? fallback),
+    getNodeParameter: vi.fn((name: string, _itemIndex: number, fallback?: unknown) => ({ authentication: 'apiKey', ...parameters })[name] ?? fallback),
     evaluateExpression: vi.fn().mockReturnValue(RESUME_URL),
     continueOnFail: vi.fn().mockReturnValue(false),
     helpers: {
@@ -167,7 +167,7 @@ describe('Formstep node lifecycle', () => {
       getNode: v2.getNode,
       getInputData: vi.fn().mockReturnValue([{ json: { company_name: 'Acme', case_id: 'CASE-9', note: 'not a field' } }]),
       getNodeParameter: vi.fn((name: string, _itemIndex: number, fallback?: unknown, options?: { extractValue?: boolean }) => {
-        const value = parameters[name] ?? fallback
+        const value = ({ authentication: 'apiKey', ...parameters })[name] ?? fallback
         return options?.extractValue && typeof value === 'object' && value !== null && '__rl' in value ? (value as { value: unknown }).value : value
       }),
     }

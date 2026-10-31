@@ -110,11 +110,11 @@ function v2Property(name: string): INodeProperties | undefined {
 }
 
 describe('Formstep node versions', () => {
-  it('defaults new nodes to version 3 and keeps versions 1 and 2 for saved workflows', () => {
+  it('defaults new nodes to version 4 and keeps versions 1 to 3 for saved workflows', () => {
     const { description } = new Formstep()
 
-    expect(description.version).toEqual([1, 2, 3])
-    expect(description.defaultVersion).toBe(3)
+    expect(description.version).toEqual([1, 2, 3, 4])
+    expect(description.defaultVersion).toBe(4)
   })
 
   it('offers Simplify on Get and Get Many from version 3 on, on by default', () => {

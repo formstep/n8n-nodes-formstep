@@ -11,12 +11,12 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 
 import {
   FORMSTEP_IDLE_WINDOW_OPTIONS,
-  FORMSTEP_CREDENTIAL_TYPE,
   FORMSTEP_WEBHOOK_EVENTS,
   isFormstepIdleWindow,
   type FormstepIdleWindow,
   type FormstepWebhookEvent,
 } from './constants'
+import { authenticationProperties, formstepCredentials } from './Authentication'
 import type { ListResponse } from './FormstepCatalog'
 import { getForms } from './FormstepMethods'
 import { createFormstepWebhookSecret, verifyFormstepWebhookSignature } from './FormstepWebhookSignature'
@@ -140,7 +140,8 @@ export class FormstepTrigger implements INodeType {
     name: 'formstepTrigger',
     icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['trigger'],
-    version: 1,
+    version: [1, 1.1],
+    defaultVersion: 1.1,
     subtitle: EVENT_SUBTITLE,
     description:
       'Starts the workflow when a Formstep request is completed, expires or is canceled, or when a respondent submits a form through its public link',
@@ -149,12 +150,7 @@ export class FormstepTrigger implements INodeType {
     },
     inputs: [],
     outputs: [NodeConnectionTypes.Main],
-    credentials: [
-      {
-        name: FORMSTEP_CREDENTIAL_TYPE,
-        required: true,
-      },
-    ],
+    credentials: formstepCredentials,
     webhooks: [
       {
         name: 'default',
@@ -173,7 +169,9 @@ export class FormstepTrigger implements INodeType {
       },
       activationHint: 'Publish the workflow to register the webhook with Formstep. Unpublishing removes it.',
     },
+    // Version 1.1 changes only the default Authentication, to an API key.
     properties: [
+      ...authenticationProperties(1.1),
       {
         displayName: 'Form Name or ID',
         name: 'formId',

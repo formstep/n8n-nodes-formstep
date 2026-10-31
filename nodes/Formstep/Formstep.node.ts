@@ -4,7 +4,7 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 import { requestProperties } from './actions/RequestDescription'
 import type { FieldLookup } from './actions/RequestCreate'
 import { isRequestOperation, REQUEST_OPERATIONS } from './actions/RequestOperations'
-import { FORMSTEP_CREDENTIAL_TYPE } from './constants'
+import { authenticationProperties, formstepCredentials } from './Authentication'
 import { listFields, type FormField } from './FormstepCatalog'
 import { listSearch, loadOptions, resourceMapping } from './FormstepMethods'
 import { isNodeError } from './NodeErrors'
@@ -27,8 +27,8 @@ export class Formstep implements INodeType {
     name: 'formstep',
     icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['transform'],
-    version: [1, 2, 3],
-    defaultVersion: 3,
+    version: [1, 2, 3, 4],
+    defaultVersion: 4,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
     description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until a customer completes one',
     defaults: {
@@ -37,13 +37,9 @@ export class Formstep implements INodeType {
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
     usableAsTool: true,
-    credentials: [
-      {
-        name: FORMSTEP_CREDENTIAL_TYPE,
-        required: true,
-      },
-    ],
-    properties: requestProperties,
+    credentials: formstepCredentials,
+    // Version 4 changes only the default Authentication, to an API key.
+    properties: [...authenticationProperties(4), ...requestProperties],
   }
 
   methods = { loadOptions, listSearch, resourceMapping }
