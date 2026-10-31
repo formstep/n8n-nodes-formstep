@@ -156,7 +156,7 @@ describe('Formstep node description', () => {
   it('is registered next to the trigger in package.json', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string; n8n: { nodes: string[] } }
 
-    expect(pkg.version).toBe('0.13.0')
+    expect(pkg.version).toBe('0.14.0')
     expect(pkg.n8n.nodes).toEqual(['dist/nodes/Formstep/Formstep.node.js', 'dist/nodes/Formstep/FormstepTrigger.node.js'])
   })
 

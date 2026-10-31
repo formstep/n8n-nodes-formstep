@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## 0.14.0 - 2026-10-31
+
+- **API key authentication.** A new **Formstep API** credential takes an API key from **OAuth and API Keys** in Formstep. It works on n8n Cloud, where n8n does not support the OAuth2 credential's dynamic client registration for community nodes, as well as on self-hosted n8n.
+- Both nodes have an **Authentication** choice: **API Key** or **OAuth2**. New Formstep nodes are version 4 and new triggers version 1.1, and they default to **API Key**. Nodes saved with an earlier version default to **OAuth2** and keep their credential.
+- The example workflows use Formstep node version 4 and trigger version 1.1.
+- Create the key in Formstep with **Expiration** set to **No expiration**, so workflows keep running. A key made with 30 or 90 days stops working on that date.
+
 ## 0.13.0 - 2026-10-24
 
 - **Formstep node version 3**, the default for new nodes, adds **Simplify** to **Get** and **Get Many**, on by default. A request comes back as ten fields: `id`, `status`, `outcome`, `externalId`, `formId`, `recipientEmail`, `answers` (Get only, once completed), and `createdAt`, `expiresAt` and `completedAt` as ISO 8601 strings instead of Unix milliseconds. It keeps an AI agent's context small when the node runs as a tool. Turn Simplify off for the whole request. Nodes saved with version 1 or 2 return the whole request as before.
