@@ -1,5 +1,5 @@
 {
-  "name": "Ask a customer with a form built in the request, and wait for the outcome",
+  "name": "Ask someone with a form built in the request, and wait for the outcome",
   "nodes": [
     {
       "parameters": {},

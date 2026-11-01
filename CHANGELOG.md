@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 0.14.1 - 2026-11-01
+
+- The package description, README and node description speak to anyone who collects information from people, not only businesses asking customers: "Collect structured data without the chasing." The keyword `customer-in-the-loop` is now `data-collection`.
+- The two example workflows that said "Ask a customer" are named "Ask someone and wait for the outcome" and "Ask someone with a form built in the request, and wait for the outcome". No code change.
+
 ## 0.14.0 - 2026-10-31
 
 - **API key authentication.** A new **Formstep API** credential takes an API key from **OAuth and API Keys** in Formstep. It works on n8n Cloud, where n8n does not support the OAuth2 credential's dynamic client registration for community nodes, as well as on self-hosted n8n.

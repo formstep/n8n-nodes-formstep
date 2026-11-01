@@ -30,7 +30,7 @@ export class Formstep implements INodeType {
     version: [1, 2, 3, 4],
     defaultVersion: 4,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
-    description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until a customer completes one',
+    description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until the recipient completes one',
     defaults: {
       name: 'Formstep',
     },

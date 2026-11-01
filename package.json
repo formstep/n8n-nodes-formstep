@@ -1,14 +1,14 @@
 {
   "name": "n8n-nodes-formstep",
-  "version": "0.14.0",
-  "description": "n8n community nodes for Formstep — create requests, pause a workflow until a customer completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect and verify customer information for workflows and AI agents.",
+  "version": "0.14.1",
+  "description": "n8n community nodes for Formstep — create requests, pause a workflow until the recipient completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect structured data without the chasing.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
     "formstep",
     "forms",
     "requests",
-    "customer-in-the-loop",
+    "data-collection",
     "human-in-the-loop",
     "webhook",
     "approval",

@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/n8n-nodes-formstep)](https://www.npmjs.com/package/n8n-nodes-formstep)
 
-[Formstep](https://formstep.io) nodes for [n8n](https://n8n.io). Send a customer a branded form made for them, prefilled with what you already know, pause the workflow until they answer, and carry on with verified answers keyed by stable field keys.
+[Formstep](https://formstep.io) nodes for [n8n](https://n8n.io). Send anyone a branded form made for them, prefilled with what you already know, pause the workflow until they answer, and carry on with validated answers keyed by stable field keys.
 
 ![An n8n workflow that sends an expense to a manager with the receipt attached, waits for the decision and routes approve, changes, decline and no answer](https://docs.formstep.io/guides/n8n/n8n-approval-workflow.png)
 
