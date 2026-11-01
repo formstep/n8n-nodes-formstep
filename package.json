@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-formstep",
-  "version": "0.14.1",
-  "description": "n8n community nodes for Formstep — create requests, pause a workflow until the recipient completes one, and trigger on completed, expired or canceled requests and on form submissions. Collect structured data without the chasing.",
+  "version": "0.14.2",
+  "description": "n8n community nodes for Formstep — create requests, pause a workflow until the recipient completes one, and trigger on completed, expired or canceled requests and on form submissions. Request information without the back-and-forth.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.14.2 - 2026-11-01
+
+- The package description ends on the landing page's new headline, "Request information without the back-and-forth." No code change.
+
 ## 0.14.1 - 2026-11-01
 
 - The package description, README and node description speak to anyone who collects information from people, not only businesses asking customers: "Collect structured data without the chasing." The keyword `customer-in-the-loop` is now `data-collection`.
