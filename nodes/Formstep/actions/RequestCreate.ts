@@ -53,28 +53,41 @@ interface InlineFormOptions {
   translations?: unknown
 }
 
-/** A JSON-typed parameter, whether n8n handed over its text or an expression already produced the object. */
-function parseJsonValue(context: IExecuteFunctions, value: unknown, what: string, itemIndex: number): unknown {
+/**
+ * A JSON-typed parameter, whether n8n handed over its text or an expression
+ * already produced the object. `label` names it in the error, as the user sees it.
+ */
+function parseJsonValue(context: IExecuteFunctions, value: unknown, label: string, itemIndex: number): unknown {
   if (typeof value !== 'string') return value
   try {
     return JSON.parse(value)
   } catch {
-    throw new NodeOperationError(context.getNode(), `The ${what} is not valid JSON`, { itemIndex })
+    throw new NodeOperationError(context.getNode(), `${label} is not valid JSON`, {
+      itemIndex,
+      description: 'Put double quotes around every key and text value, and leave no trailing commas.',
+    })
   }
 }
 
 /** The key/value pairs of a version 1 Prefill or Context list as the object `requests.create` takes. */
 function readPairs(context: IExecuteFunctions, parameter: 'prefill' | 'context', itemIndex: number): Record<string, unknown> {
+  const label = parameter === 'prefill' ? "'Prefill'" : "'Context'"
   const collection = context.getNodeParameter(parameter, itemIndex, {}) as { values?: KeyValuePair[] }
   const values: Record<string, unknown> = {}
   for (const pair of collection.values ?? []) {
     if (!pair.key) {
-      throw new NodeOperationError(context.getNode(), `Every ${parameter} entry needs a field key`, { itemIndex })
+      throw new NodeOperationError(context.getNode(), `Every row of ${label} needs a field`, {
+        itemIndex,
+        description: 'Pick a field for the row, or remove the row.',
+      })
     }
     if (pair.key in values) {
-      throw new NodeOperationError(context.getNode(), `Field key "${pair.key}" is listed twice in ${parameter}`, { itemIndex })
+      throw new NodeOperationError(context.getNode(), `Field key "${pair.key}" is listed twice in ${label}`, {
+        itemIndex,
+        description: 'Remove one of the two rows.',
+      })
     }
-    values[pair.key] = pair.json ? parseJsonValue(context, pair.value, `${parameter} value for "${pair.key}"`, itemIndex) : pair.value
+    values[pair.key] = pair.json ? parseJsonValue(context, pair.value, `The ${label} value for "${pair.key}"`, itemIndex) : pair.value
   }
   return values
 }
@@ -105,12 +118,16 @@ async function readFieldValues(
   return splitFieldValues(fields, values, false)
 }
 
-/** A JSON parameter that must hold an object; empty is no value. `what` names it in the error, capitalised. */
-function readJsonObject(context: IExecuteFunctions, value: unknown, what: string, itemIndex: number): Record<string, unknown> | undefined {
+/** A JSON parameter that must hold an object; empty is no value. `displayName` names it in the error. */
+function readJsonObject(context: IExecuteFunctions, value: unknown, displayName: string, itemIndex: number): Record<string, unknown> | undefined {
   if (value === undefined || value === '') return undefined
-  const parsed = parseJsonValue(context, value, what.toLowerCase(), itemIndex)
+  const label = `'${displayName}'`
+  const parsed = parseJsonValue(context, value, label, itemIndex)
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new NodeOperationError(context.getNode(), `${what} must be a JSON object`, { itemIndex })
+    throw new NodeOperationError(context.getNode(), `${label} must be a JSON object`, {
+      itemIndex,
+      description: 'Write it as { "key": "value" }, or empty it to send nothing.',
+    })
   }
   // Narrowed to a non-array object above.
   return parsed as Record<string, unknown>
@@ -121,8 +138,8 @@ function readMetadata(context: IExecuteFunctions, metadata: unknown, itemIndex: 
 }
 
 /** A JSON object parameter, or nothing when it is empty or `{}`. */
-function readNonEmptyObject(context: IExecuteFunctions, value: unknown, what: string, itemIndex: number): Record<string, unknown> | undefined {
-  const parsed = readJsonObject(context, value, what, itemIndex)
+function readNonEmptyObject(context: IExecuteFunctions, value: unknown, displayName: string, itemIndex: number): Record<string, unknown> | undefined {
+  const parsed = readJsonObject(context, value, displayName, itemIndex)
   return parsed && Object.keys(parsed).length > 0 ? parsed : undefined
 }
 
@@ -133,9 +150,13 @@ function readNonEmptyObject(context: IExecuteFunctions, value: unknown, what: st
  */
 function readInlineForm(context: IExecuteFunctions, itemIndex: number): Record<string, unknown> {
   const name = context.getNodeParameter('formName', itemIndex, '') as string
-  const blocks = parseJsonValue(context, context.getNodeParameter('formBlocks', itemIndex, ''), 'form blocks', itemIndex)
+  const blocks = parseJsonValue(context, context.getNodeParameter('formBlocks', itemIndex, ''), "'Form Blocks'", itemIndex)
   if (!Array.isArray(blocks)) {
-    throw new NodeOperationError(context.getNode(), 'Form Blocks must be a JSON array of blocks', { itemIndex })
+    throw new NodeOperationError(context.getNode(), "'Form Blocks' must be a JSON array of blocks", {
+      itemIndex,
+      description:
+        'Write it as [ { "type": "text", "key": "full_name", "title": "Your name" } ]. Every block type is in https://docs.formstep.io/requests/inline-forms/',
+    })
   }
   const options = context.getNodeParameter('formOptions', itemIndex, {}) as InlineFormOptions
   const logo = readNonEmptyObject(context, options.logo, 'Logo', itemIndex)
@@ -202,7 +223,10 @@ async function readFormParams(context: IExecuteFunctions, itemIndex: number, fie
 function readExpiresAt(context: IExecuteFunctions, expiresAt: string, itemIndex: number): number {
   const timestamp = Date.parse(expiresAt)
   if (Number.isNaN(timestamp)) {
-    throw new NodeOperationError(context.getNode(), `'Expires At' value ${expiresAt} is not a date`, { itemIndex })
+    throw new NodeOperationError(context.getNode(), `'Expires At' value ${expiresAt} is not a date`, {
+      itemIndex,
+      description: 'Use a date and time such as 2026-12-31T17:00:00Z.',
+    })
   }
   return timestamp
 }
@@ -223,11 +247,10 @@ function readReminders(reminders: string): string[] {
 function readResumeUrl(context: IExecuteFunctions, itemIndex: number): string {
   const resumeUrl = context.evaluateExpression('{{ $execution.resumeUrl }}', itemIndex)
   if (typeof resumeUrl !== 'string' || resumeUrl.length === 0) {
-    throw new NodeOperationError(
-      context.getNode(),
-      "n8n did not provide a resume URL for this execution. Turn off 'Wait for the Outcome', or run the workflow where a Wait node set to 'On Webhook Call' can resume it.",
-      { itemIndex }
-    )
+    throw new NodeOperationError(context.getNode(), 'n8n did not provide a resume URL for this execution', {
+      itemIndex,
+      description: "Turn off 'Wait for the Outcome', or run the workflow where a Wait node set to 'On Webhook Call' can resume it.",
+    })
   }
   // Formstep calls back HTTPS addresses only; an n8n without a public address resumes on http://localhost.
   if (!resumeUrl.startsWith('https://')) {
@@ -253,13 +276,19 @@ async function uploadDocuments(context: IExecuteFunctions, formId: string, itemI
   for (const row of collection.values ?? []) {
     const binaryProperty = row.binaryProperty?.trim()
     if (!binaryProperty) {
-      throw new NodeOperationError(context.getNode(), 'Every document needs the name of an input binary field', { itemIndex })
+      throw new NodeOperationError(context.getNode(), "'Input Binary Field' is empty on a row of 'Documents'", {
+        itemIndex,
+        description: 'Enter the name of the input binary field that holds the file, such as data.',
+      })
     }
     const binary = context.helpers.assertBinaryData(itemIndex, binaryProperty)
     const bytes = await context.helpers.getBinaryDataBuffer(itemIndex, binaryProperty)
     const name = row.name?.trim() || binary.fileName
     if (!name) {
-      throw new NodeOperationError(context.getNode(), `The file in ${binaryProperty} has no file name; set a 'Name' for it`, { itemIndex })
+      throw new NodeOperationError(context.getNode(), `The file in ${binaryProperty} has no file name`, {
+        itemIndex,
+        description: "Set a 'Name' for it on its row of 'Documents'.",
+      })
     }
 
     const reserved = await formstepApiRequest<ReservedDocument>(context, 'documents.create', {
@@ -287,11 +316,10 @@ export async function buildCreateParams(context: IExecuteFunctions, itemIndex: n
   const additional = context.getNodeParameter('additionalFields', itemIndex, {}) as CreateAdditionalFields
 
   if (waitForOutcome && additional.callbackUrl) {
-    throw new NodeOperationError(
-      context.getNode(),
-      "'Wait for the Outcome' already sets the callback URL. Turn it off to use a 'Callback URL' of your own.",
-      { itemIndex }
-    )
+    throw new NodeOperationError(context.getNode(), "'Wait for the Outcome' already sets the callback URL", {
+      itemIndex,
+      description: "Turn off 'Wait for the Outcome' to use a 'Callback URL' of your own, or empty 'Callback URL'.",
+    })
   }
   const callbackUrl = waitForOutcome ? readResumeUrl(context, itemIndex) : additional.callbackUrl
 

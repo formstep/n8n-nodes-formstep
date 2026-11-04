@@ -25,7 +25,7 @@ Import one with **Workflows › Import from File**, then pick your credential an
 
 On self-hosted n8n, open **Settings › Community Nodes**, select **Install** and enter `n8n-nodes-formstep`. On n8n Cloud, the node can be installed once n8n has verified it.
 
-You need n8n 2.30 or newer, and an n8n that Formstep can reach over HTTPS: set `WEBHOOK_URL` and `N8N_EDITOR_BASE_URL` to its public address. To use the node as an AI agent tool, start n8n with `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true`. See [Install the Formstep node in n8n](https://docs.formstep.io/guides/n8n/install-the-node/).
+You need n8n 2.30 or newer, and an n8n that Formstep can reach over HTTPS: set `WEBHOOK_URL` and `N8N_EDITOR_BASE_URL` to its public address. n8n 2.46 offers the node as an AI agent tool without further setup; if it does not show up as a tool on an older n8n, start n8n with `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true`. See [Install the Formstep node in n8n](https://docs.formstep.io/guides/n8n/install-the-node/).
 
 ## Connect
 
@@ -56,9 +56,9 @@ Nodes saved before version 0.14.0 keep their OAuth2 credential. See [Connect For
 - **Test Mode** on Create sends nothing and keeps the request out of your lists. The request still opens and completes, and its callback still resumes a waiting workflow; request triggers ignore it.
 - **External ID** is also the request's idempotency key: a retried execution gets the same request back with `deduplicated: true` instead of a second one.
 - Answers arrive under their field keys, as `{{ $json.data.answers.company_name }}` in a trigger and `{{ $json.body.data.answers.company_name }}` after a Wait node, with the readable text under `display`. The outcome of a Decision question is `data.request.outcome`: `approve`, `changes` or `decline`. See the [webhooks reference](https://docs.formstep.io/developers/webhooks-reference).
-- **Get** and **Get Many** return ten fields per request with **Simplify**, on by default from node version 3, with ISO 8601 dates. Turned off, they return the whole request, with Unix-millisecond timestamps.
+- **Output** on Get, Get Many, Cancel and Remind sets how much of the request comes back. **Simplified**, the default, returns at most ten fields with ISO 8601 dates, **Raw** the whole request with Unix-millisecond dates, and **Selected Fields** the request ID and the fields you pick, which keeps an AI agent's context small. Nodes saved with version 3 or 4 keep **Simplify** on Get and Get Many, and return the whole request from Cancel and Remind.
 - A failed call stops the node with the Formstep code and message, such as `VALIDATION_ERROR: "email" is not a valid email address`, with the reason and the field in the description. With **Continue on Fail**, the same text is in the item's `error`.
-- Workflows saved with an older node version keep working unchanged. New Formstep nodes are version 4 and new triggers version 1.1; both only change the default Authentication to API Key.
+- Workflows saved with an older node version keep working unchanged. New Formstep nodes are version 5, which adds **Output**, and new triggers version 1.2, which picks the form from a searchable list or by ID.
 
 ## Resources
 

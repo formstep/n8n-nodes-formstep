@@ -1,8 +1,13 @@
 import type { IDisplayOptions, INodeProperties } from 'n8n-workflow'
 
+import { formLocatorProperty } from '../FormstepMethods'
+
 export type RequestOperation = 'cancel' | 'create' | 'get' | 'getAll' | 'remind' | 'replayCallback'
 
 const REQUEST_ID_OPERATIONS: RequestOperation[] = ['cancel', 'get', 'remind', 'replayCallback']
+
+/** The operations that answer with a whole request, more than the ten fields n8n asks a node to reduce to. */
+const OUTPUT_OPERATIONS: RequestOperation[] = ['cancel', 'get', 'getAll', 'remind']
 
 const EXPRESSION_HINT = 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>'
 
@@ -10,12 +15,15 @@ const EXPRESSION_HINT = 'Choose from the list, or specify an ID using an <a href
  * Version 1 keeps the parameters its workflows were saved with: a form
  * dropdown, a Request ID text box, and key/value Prefill and Context lists.
  * Version 2 picks the form and the request with a searchable list or an ID,
- * and maps every field of the form in one typed Fields mapper. Version 3
- * adds 'Simplify' to Get and Get Many, on by default.
+ * and maps every field of the form in one typed Fields mapper. Versions 3 and
+ * 4 have 'Simplify' on Get and Get Many, on by default. Version 5 replaces it
+ * with 'Output', on every operation that answers with a whole request: n8n
+ * asks that of a node usable as an AI tool.
  */
 const V1: IDisplayOptions['show'] = { '@version': [1] }
 const V2: IDisplayOptions['show'] = { '@version': [{ _cnd: { gte: 2 } }] }
-const V3: IDisplayOptions['show'] = { '@version': [{ _cnd: { gte: 3 } }] }
+const V3_AND_4: IDisplayOptions['show'] = { '@version': [3, 4] }
+const V5: IDisplayOptions['show'] = { '@version': [{ _cnd: { gte: 5 } }] }
 
 function showFor(operations: RequestOperation[], extra: IDisplayOptions['show'] = {}): IDisplayOptions {
   return { show: { resource: ['request'], operation: operations, ...extra } }
@@ -57,30 +65,7 @@ function formIdProperties(
       required: true,
       description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
     },
-    {
-      displayName: 'Form',
-      name: 'formId',
-      type: 'resourceLocator',
-      displayOptions: showFor(operations, { ...extra, ...v2Extra, ...V2 }),
-      default: { mode: 'list', value: '' },
-      required: true,
-      description: 'The form of the credential\'s workspace. A request needs a published one.',
-      modes: [
-        {
-          displayName: 'From List',
-          name: 'list',
-          type: 'list',
-          placeholder: 'Select a form...',
-          typeOptions: { searchListMethod: 'searchForms', searchable: true },
-        },
-        {
-          displayName: 'ID',
-          name: 'id',
-          type: 'string',
-          placeholder: 'e.g. j57d3kq9y8x2m1n0p4r6s5t7v9w8',
-        },
-      ],
-    },
+    formLocatorProperty("The form of the credential's workspace. A request needs a published one.", showFor(operations, { ...extra, ...v2Extra, ...V2 })),
   ]
 }
 
@@ -153,7 +138,7 @@ const operationProperty: INodeProperties = {
       name: 'Create',
       value: 'create',
       action: 'Create request',
-      description: 'Ask one recipient to complete a published form, or a new form built in the same call',
+      description: 'Create a request that asks one recipient to complete a published form, or a new form built in the same call',
     },
     {
       name: 'Get',
@@ -171,7 +156,7 @@ const operationProperty: INodeProperties = {
       name: 'Remind',
       value: 'remind',
       action: 'Remind request recipient',
-      description: 'Email the recipient a reminder now, outside the reminder schedule',
+      description: 'Email the recipient of a request a reminder now, outside the reminder schedule',
     },
     {
       name: 'Replay Callback',
@@ -228,7 +213,7 @@ const inlineFormProperties: INodeProperties[] = [
     displayOptions: showFor(['create'], INLINE_FORM),
     default: '{}',
     description:
-      'Hidden-field values keyed by the hiddenField block keys. Personalise the form here, never in its name or blocks, so every item reuses one form.',
+      'Hidden-field values keyed by the hiddenField block keys. Personalize the form here, never in its name or blocks, so every item reuses one form.',
   },
   {
     displayName: 'Read-Only Field Keys',
@@ -252,7 +237,7 @@ const inlineFormProperties: INodeProperties[] = [
         name: 'cover',
         type: 'json',
         default: '',
-        placeholder: '{ "type": "image", "url": "https://example.com/cover.jpg", "offsetY": 50 }',
+        placeholder: 'e.g. { "type": "image", "url": "https://example.com/cover.jpg", "offsetY": 50 }',
         description:
           'JSON object: a color, { "type": "color", "color": "#0f4c81" }, or an image as in the placeholder, where offsetY from 0 to 100 picks the part that shows',
       },
@@ -276,7 +261,7 @@ const inlineFormProperties: INodeProperties[] = [
         name: 'logo',
         type: 'json',
         default: '',
-        placeholder: '{ "type": "image", "url": "https://example.com/logo.png" }',
+        placeholder: 'e.g. { "type": "image", "url": "https://example.com/logo.png" }',
         description:
           'JSON object: an icon, { "type": "icon", "name": "HeartIcon" }, or an image as in the placeholder. An image must be a public JPEG, PNG or WebP; Formstep keeps its own copy.',
       },
@@ -333,7 +318,7 @@ const createProperties: INodeProperties[] = [
     displayName: 'Recipient Email',
     name: 'recipientEmail',
     type: 'string',
-    placeholder: 'e.g. name@example.com',
+    placeholder: 'e.g. nathan@example.com',
     displayOptions: showFor(['create']),
     default: '',
     description: 'Who the request is for. Needed to send the invitation email and reminders.',
@@ -348,7 +333,7 @@ const createProperties: INodeProperties[] = [
     displayOptions: showFor(['create'], EXISTING_FORM),
     default: { mappingMode: 'defineBelow', value: null },
     description:
-      'Initial answers the recipient sees, and context values they never see, keyed by field key. Map Automatically sends every input field named after a field key of the form.',
+      "Initial answers the recipient sees, and context values they never see, keyed by field key. 'Map Automatically' sends every input field named after a field key of the form.",
     typeOptions: {
       loadOptionsDependsOn: ['formId.value'],
       resourceMapper: {
@@ -408,7 +393,7 @@ const createProperties: INodeProperties[] = [
             typeOptions: { loadOptionsMethod: 'getDocumentsKeys', loadOptionsDependsOn: ['formId'] },
             default: '',
             description:
-              'The Documents block the file goes into; Automatic picks the only one on the form. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+              "The Documents block the file goes into; 'Automatic' picks the only one on the form. Choose from the list, or specify an ID using an <a href=\"https://docs.n8n.io/code/expressions/\">expression</a>.",
           },
         ],
       },
@@ -436,7 +421,7 @@ const createProperties: INodeProperties[] = [
         name: 'callbackUrl',
         type: 'string',
         default: '',
-        description: 'An HTTPS URL of your own that receives the signed request callback. Leave empty when Wait for the Outcome is on.',
+        description: "An HTTPS URL of your own that receives the signed request callback. Leave empty when 'Wait for the Outcome' is on.",
       },
       {
         displayName: 'Delivery',
@@ -491,6 +476,7 @@ const createProperties: INodeProperties[] = [
         name: 'recipientName',
         type: 'string',
         default: '',
+        placeholder: 'e.g. Nathan Smith',
       },
       {
         displayName: 'Reminders',
@@ -627,7 +613,7 @@ const getAllProperties: INodeProperties[] = [
           { name: 'Decline', value: 'decline' },
         ],
         default: 'approve',
-        description: 'Only completed requests with this verdict from the decision question; takes precedence over Status',
+        description: "Only completed requests with this verdict from the decision question; takes precedence over 'Status'",
       },
       {
         displayName: 'Status',
@@ -642,6 +628,87 @@ const getAllProperties: INodeProperties[] = [
         default: 'pending',
       },
     ],
+  },
+]
+
+/** How version 5 shapes a whole request. 'Selected Fields' returns the raw values of the fields picked below, always with `id`. */
+const outputProperties: INodeProperties[] = [
+  {
+    displayName: 'Output',
+    name: 'output',
+    type: 'options',
+    noDataExpression: true,
+    displayOptions: showFor(OUTPUT_OPERATIONS, V5),
+    options: [
+      {
+        name: 'Simplified',
+        value: 'simplified',
+        description: 'At most ten fields: the ones most workflows read, flattened, with ISO 8601 dates',
+      },
+      {
+        name: 'Raw',
+        value: 'raw',
+        description: 'Every field of the request, with dates in Unix milliseconds',
+      },
+      {
+        name: 'Selected Fields',
+        value: 'selected',
+        description: "The fields picked under 'Fields' and the request ID, so an AI agent gets only what it needs",
+      },
+    ],
+    default: 'simplified',
+  },
+  {
+    displayName: 'Fields',
+    name: 'outputFields',
+    type: 'multiOptions',
+    displayOptions: showFor(OUTPUT_OPERATIONS, { ...V5, output: ['selected'] }),
+    options: [
+      { name: 'AI Validations', value: 'aiValidations' },
+      { name: 'Answers', value: 'answers' },
+      { name: 'Callback Failed At', value: 'callbackFailedAt' },
+      { name: 'Cancel Reason', value: 'cancelReason' },
+      { name: 'Canceled At', value: 'canceledAt' },
+      { name: 'Canceled By', value: 'canceledBy' },
+      { name: 'Completed At', value: 'completedAt' },
+      { name: 'Context', value: 'context' },
+      { name: 'Created At', value: 'createdAt' },
+      { name: 'Created Via', value: 'createdVia' },
+      { name: 'Delivery', value: 'delivery' },
+      { name: 'Delivery Status', value: 'deliveryStatus' },
+      { name: 'Display', value: 'display' },
+      { name: 'Documents', value: 'documents' },
+      { name: 'Expired At', value: 'expiredAt' },
+      { name: 'Expires At', value: 'expiresAt' },
+      { name: 'External ID', value: 'externalId' },
+      { name: 'Form ID', value: 'formId' },
+      { name: 'Form Name', value: 'formName' },
+      { name: 'Form Origin', value: 'formOrigin' },
+      { name: 'Form Snapshot ID', value: 'formSnapshotId' },
+      { name: 'Has Callback', value: 'hasCallback' },
+      { name: 'Is Test', value: 'isTest' },
+      { name: 'Language', value: 'language' },
+      { name: 'Last Activity At', value: 'lastActivityAt' },
+      { name: 'Metadata', value: 'metadata' },
+      { name: 'Opened At', value: 'openedAt' },
+      { name: 'Outcome', value: 'outcome' },
+      { name: 'Prefill', value: 'prefill' },
+      { name: 'Read-Only Keys', value: 'readonlyKeys' },
+      { name: 'Recipient', value: 'recipient' },
+      { name: 'Reminder Due At', value: 'reminderDueAt' },
+      { name: 'Reminder Step', value: 'reminderStep' },
+      { name: 'Reminders Sent', value: 'remindersSent' },
+      { name: 'Started At', value: 'startedAt' },
+      { name: 'Status', value: 'status' },
+      { name: 'Submission ID', value: 'submissionId' },
+      { name: 'Timeline', value: 'timeline' },
+      { name: 'Updated At', value: 'updatedAt' },
+      { name: 'URL', value: 'url' },
+      { name: 'Workspace ID', value: 'workspaceId' },
+    ],
+    default: [],
+    description:
+      "The fields to return as Formstep sends them, always with the request ID. A field the response does not have is left out: 'Answers', 'Display' and 'Timeline' come with 'Get' only, and 'Form Name' and 'Form Origin' with 'Get Many' only.",
   },
 ]
 
@@ -662,8 +729,9 @@ export const requestProperties: INodeProperties[] = [
     displayName: 'Simplify',
     name: 'simplify',
     type: 'boolean',
-    displayOptions: showFor(['get', 'getAll'], V3),
+    displayOptions: showFor(['get', 'getAll'], V3_AND_4),
     default: true,
     description: 'Whether to return a simplified version of the response instead of the raw data',
   },
+  ...outputProperties,
 ]

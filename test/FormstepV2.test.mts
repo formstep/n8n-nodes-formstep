@@ -110,21 +110,53 @@ function v2Property(name: string): INodeProperties | undefined {
 }
 
 describe('Formstep node versions', () => {
-  it('defaults new nodes to version 4 and keeps versions 1 to 3 for saved workflows', () => {
+  it('defaults new nodes to version 5 and keeps versions 1 to 4 for saved workflows', () => {
     const { description } = new Formstep()
 
-    expect(description.version).toEqual([1, 2, 3, 4])
-    expect(description.defaultVersion).toBe(4)
+    expect(description.version).toEqual([1, 2, 3, 4, 5])
+    expect(description.defaultVersion).toBe(5)
   })
 
-  it('offers Simplify on Get and Get Many from version 3 on, on by default', () => {
+  it('offers Simplify on Get and Get Many on versions 3 and 4, on by default', () => {
     expect(propertiesNamed('simplify')).toEqual([
       expect.objectContaining({
         type: 'boolean',
         default: true,
-        displayOptions: { show: { resource: ['request'], operation: ['get', 'getAll'], '@version': [{ _cnd: { gte: 3 } }] } },
+        displayOptions: { show: { resource: ['request'], operation: ['get', 'getAll'], '@version': [3, 4] } },
       }),
     ])
+  })
+
+  it('offers Output from version 5 on, wherever Formstep answers with a whole request', () => {
+    const operations = ['cancel', 'get', 'getAll', 'remind']
+    const [output, ...others] = propertiesNamed('output')
+
+    expect(others).toEqual([])
+    expect(output).toMatchObject({
+      type: 'options',
+      default: 'simplified',
+      displayOptions: { show: { resource: ['request'], operation: operations, '@version': [{ _cnd: { gte: 5 } }] } },
+      options: [
+        expect.objectContaining({ name: 'Simplified', value: 'simplified' }),
+        expect.objectContaining({ name: 'Raw', value: 'raw' }),
+        expect.objectContaining({ name: 'Selected Fields', value: 'selected' }),
+      ],
+    })
+    expect(propertiesNamed('outputFields')).toEqual([
+      expect.objectContaining({
+        type: 'multiOptions',
+        default: [],
+        displayOptions: { show: { resource: ['request'], operation: operations, '@version': [{ _cnd: { gte: 5 } }], output: ['selected'] } },
+      }),
+    ])
+  })
+
+  it('never offers the request ID as a field to pick, since Selected Fields always returns it', () => {
+    const [outputFields] = propertiesNamed('outputFields')
+    const values = (outputFields?.options ?? []).map((option) => ('value' in option ? option.value : undefined))
+
+    expect(values).not.toContain('id')
+    expect(new Set(values).size).toBe(values.length)
   })
 
   it('keeps the key/value Prefill and Context lists on version 1 only', () => {
@@ -438,11 +470,11 @@ describe('Formstep.execute: create with a new form', () => {
   })
 
   it.each([
-    ['blocks that are not JSON', { formBlocks: '[{ type: text }]' }, 'The form blocks is not valid JSON'],
-    ['blocks that are not an array', { formBlocks: '{ "type": "text" }' }, 'Form Blocks must be a JSON array of blocks'],
-    ['a prefill that is not an object', { inlinePrefill: '["a"]' }, 'Prefill must be a JSON object'],
-    ['settings that are not an object', { formOptions: { settings: '[]' } }, 'Settings must be a JSON object'],
-    ['a logo that is not an object', { formOptions: { logo: '"HeartIcon"' } }, 'Logo must be a JSON object'],
+    ['blocks that are not JSON', { formBlocks: '[{ type: text }]' }, "'Form Blocks' is not valid JSON"],
+    ['blocks that are not an array', { formBlocks: '{ "type": "text" }' }, "'Form Blocks' must be a JSON array of blocks"],
+    ['a prefill that is not an object', { inlinePrefill: '["a"]' }, "'Prefill' must be a JSON object"],
+    ['settings that are not an object', { formOptions: { settings: '[]' } }, "'Settings' must be a JSON object"],
+    ['a logo that is not an object', { formOptions: { logo: '"HeartIcon"' } }, "'Logo' must be a JSON object"],
   ])('refuses %s before calling Formstep', async (_case, parameters, message) => {
     respond(() => ({ id: 'req_1' }))
 
@@ -451,7 +483,8 @@ describe('Formstep.execute: create with a new form', () => {
   })
 })
 
-describe('Formstep.execute: Simplify', () => {
+describe('Formstep.execute: Simplify and Output', () => {
+  const MINIMAL_INLINE_FORM = { formName: 'Your application', formBlocks: '[{ "type": "text", "key": "name" }]' }
   const REQUEST = {
     id: 'req_1',
     status: 'completed',
@@ -508,6 +541,107 @@ describe('Formstep.execute: Simplify', () => {
 
     expect(await runVersion(3, { resource: 'request', operation: 'get', requestId: locator('req_1'), simplify: false })).toEqual([REQUEST])
     expect(await runVersion(2, { resource: 'request', operation: 'get', requestId: locator('req_1'), simplify: true })).toEqual([REQUEST])
+  })
+
+  it('keeps returning the raw request from Cancel and Remind on the versions before Output', async () => {
+    respond(() => REQUEST)
+
+    for (const operation of ['cancel', 'remind']) {
+      expect(await runVersion(4, { resource: 'request', operation, requestId: locator('req_1') })).toEqual([REQUEST])
+    }
+  })
+
+  describe('Output', () => {
+    const SIMPLIFIED = {
+      id: 'req_1',
+      status: 'completed',
+      outcome: 'approve',
+      externalId: 'run-42',
+      formId: 'form_1',
+      recipientEmail: 'ada@example.com',
+      answers: { decision: 'approve' },
+      createdAt: '2026-10-24T19:07:48.911Z',
+      expiresAt: '2026-10-25T19:07:48.911Z',
+      completedAt: '2026-10-24T19:08:41.339Z',
+    }
+    const GET = { resource: 'request', operation: 'get', requestId: locator('req_1') }
+
+    it('defaults to at most ten fields, the same ones Simplify returned', async () => {
+      respond(() => REQUEST)
+
+      const [request] = await runVersion(5, GET)
+
+      expect(request).toEqual(SIMPLIFIED)
+      expect(Object.keys(request as object).length).toBeLessThanOrEqual(10)
+    })
+
+    it('ignores a Simplify value left in a workflow, which version 5 does not read', async () => {
+      respond(() => REQUEST)
+
+      expect(await runVersion(5, { ...GET, simplify: false })).toEqual([SIMPLIFIED])
+    })
+
+    it('returns every field with Raw', async () => {
+      respond(() => REQUEST)
+
+      expect(await runVersion(5, { ...GET, output: 'raw' })).toEqual([REQUEST])
+    })
+
+    it('returns the request ID and the picked fields, as Formstep sent them, with Selected Fields', async () => {
+      respond(() => REQUEST)
+
+      expect(await runVersion(5, { ...GET, output: 'selected', outputFields: ['status', 'recipient', 'createdAt'] })).toEqual([
+        { id: 'req_1', status: 'completed', recipient: { email: 'ada@example.com', name: 'Ada' }, createdAt: 1792868868911 },
+      ])
+    })
+
+    it('returns the request ID alone when no field is picked', async () => {
+      respond(() => REQUEST)
+
+      expect(await runVersion(5, { ...GET, output: 'selected' })).toEqual([{ id: 'req_1' }])
+    })
+
+    it('leaves out a picked field the response does not have instead of sending undefined', async () => {
+      const { answers: _answers, ...listed } = REQUEST
+      respond(() => ({ items: [listed], hasMore: false, nextCursor: null }))
+
+      const parameters = { resource: 'request', operation: 'getAll', returnAll: true, scope: 'form', formId: locator('form_1', 'id') }
+      const [request] = await runVersion(5, { ...parameters, output: 'selected', outputFields: ['status', 'answers'] })
+
+      expect(request).toEqual({ id: 'req_1', status: 'completed' })
+    })
+
+    it.each(['cancel', 'remind'])('shapes what %s returns', async (operation) => {
+      respond(() => REQUEST)
+      const parameters = { resource: 'request', operation, requestId: locator('req_1') }
+
+      expect(await runVersion(5, parameters)).toEqual([SIMPLIFIED])
+      expect(await runVersion(5, { ...parameters, output: 'raw' })).toEqual([REQUEST])
+      expect(await runVersion(5, { ...parameters, output: 'selected', outputFields: ['status'] })).toEqual([{ id: 'req_1', status: 'completed' }])
+    })
+
+    it.each(['cancel', 'remind'])('stops before %s reaches Formstep when the value is not one it knows', async (operation) => {
+      respond(() => REQUEST)
+
+      await expect(runVersion(5, { resource: 'request', operation, requestId: locator('req_1'), output: 'everything' })).rejects.toThrow(
+        "'Output' value everything is not supported"
+      )
+      expect(mockedRequest).not.toHaveBeenCalled()
+    })
+
+    it('leaves what Create returns alone: it answers with eight fields', async () => {
+      const created = { id: 'req_1', status: 'pending', url: 'https://form.formstep.io/r/rq_1', deduplicated: false }
+      respond(() => created)
+
+      expect(await runVersion(5, { resource: 'request', operation: 'create', formSource: 'inline', ...MINIMAL_INLINE_FORM })).toEqual([created])
+    })
+
+    it('leaves what Replay Callback returns alone: it answers with two fields', async () => {
+      const replayed = { dispatchId: 'd_1', eventId: 'evt_1' }
+      respond(() => replayed)
+
+      expect(await runVersion(5, { resource: 'request', operation: 'replayCallback', requestId: locator('req_1') })).toEqual([replayed])
+    })
   })
 })
 
