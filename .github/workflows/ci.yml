@@ -24,3 +24,5 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run lint
+      # n8n's verification scanner ignores eslint-disable comments, so this does too.
+      - run: ./node_modules/.bin/eslint --no-inline-config credentials nodes
