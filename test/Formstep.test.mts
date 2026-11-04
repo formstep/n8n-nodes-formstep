@@ -156,7 +156,7 @@ describe('Formstep node description', () => {
   it('is registered next to the trigger in package.json', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string; n8n: { nodes: string[] } }
 
-    expect(pkg.version).toBe('0.14.2')
+    expect(pkg.version).toBe('0.15.0')
     expect(pkg.n8n.nodes).toEqual(['dist/nodes/Formstep/Formstep.node.js', 'dist/nodes/Formstep/FormstepTrigger.node.js'])
   })
 
@@ -194,7 +194,7 @@ describe('Formstep node description', () => {
     expect(workflow.active).toBe(false)
     const create = workflow.nodes.find((node) => node.type === 'n8n-nodes-formstep.formstep')
     const wait = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.wait')
-    expect(create).toMatchObject({ typeVersion: 4, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
+    expect(create).toMatchObject({ typeVersion: 5, parameters: { operation: 'create', formSource: 'inline', waitForOutcome: true } })
     expect(create?.parameters.formId).toBeUndefined()
     const blocks = JSON.parse(create?.parameters.formBlocks as string) as Array<{ type: string; key?: string }>
     expect(blocks.filter((block) => block.type === 'hiddenField').map((block) => block.key)).toEqual(['first_name', 'case_id'])
@@ -240,10 +240,10 @@ describe('example workflows', () => {
 
   it.each(examples)('%s uses the newest node versions and creates test requests, so a first run emails nobody', (_file, workflow) => {
     for (const node of workflow.nodes.filter((candidate) => candidate.type === 'n8n-nodes-formstep.formstepTrigger')) {
-      expect(node.typeVersion).toBe(1.1)
+      expect(node.typeVersion).toBe(1.2)
     }
     for (const node of workflow.nodes.filter((candidate) => /^n8n-nodes-formstep\.formstep(Tool)?$/.test(candidate.type))) {
-      expect(node.typeVersion).toBe(4)
+      expect(node.typeVersion).toBe(5)
       if (node.parameters.operation === 'create') expect(node.parameters.additionalFields).toMatchObject({ test: true })
     }
   })

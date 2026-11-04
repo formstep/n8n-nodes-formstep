@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented here.
 
+## 0.15.0 - 2026-11-04
+
+Prepares the node for verification by n8n, against its [verification](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/verification-guidelines/) and [UX](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/ux-guidelines/) guidelines. Workflows saved with an older node version keep working unchanged.
+
+- **Formstep node version 5**, the default for new nodes, replaces **Simplify** with **Output** on **Get**, **Get Many**, **Cancel** and **Remind**, the operations that answer with a whole request. **Simplified**, the default, returns the same ten fields Simplify did; **Raw** returns the whole request; **Selected Fields** returns the request ID and the fields you pick, so an AI agent gets only what it needs. On version 5, Cancel and Remind return the simplified request instead of the whole one unless you set Output to Raw.
+- **Formstep Trigger version 1.2**, the default for new triggers, picks the form with a resource locator: a searchable list, or by ID.
+- The **Form** resource locator calls its ID mode **By ID**, like the **Request** one.
+- Errors name the parameter by its display name, say in their description how to go on, and no longer say "Formstep API error". `VALIDATION_ERROR` and the other Formstep codes are unchanged, so workflows that match them keep working.
+- Operation descriptions name the request, placeholders start with "e.g.", and descriptions put parameter names in single quotes.
+- The example workflows use Formstep node version 5 and trigger version 1.2.
+- The README no longer says an AI agent tool needs `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE`: n8n 2.46 offers the node as a tool without it.
+
 ## 0.14.2 - 2026-11-01
 
 - The package description ends on the landing page's new headline, "Request information without the back-and-forth." No code change.
