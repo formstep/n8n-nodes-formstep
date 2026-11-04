@@ -1,5 +1,6 @@
 import { NodeApiError, NodeOperationError } from 'n8n-workflow'
 
+import { FORMSTEP_RETRY_HINT } from './constants'
 import { formstepApiRequest, type FormstepRpcContext } from './GenericFunctions'
 
 export interface FormSummary {
@@ -71,7 +72,7 @@ export async function collectPages<T>(
     })
     items.push(...page.items)
     if (page.hasMore && !page.nextCursor) {
-      throw new NodeApiError(context.getNode(), { message: `Formstep returned an incomplete ${method} page` })
+      throw new NodeApiError(context.getNode(), { message: `Formstep returned an incomplete ${method} page` }, { description: FORMSTEP_RETRY_HINT })
     }
     cursor = page.hasMore ? (page.nextCursor ?? undefined) : undefined
   } while (cursor && items.length < max)
@@ -88,7 +89,9 @@ export async function readWorkspace(context: FormstepRpcContext): Promise<Worksp
   const workspaces = await formstepApiRequest<ListResponse<WorkspaceSummary>>(context, 'workspaces.list')
   const workspace = workspaces.items[0]
   if (!workspace) {
-    throw new NodeOperationError(context.getNode(), 'This Formstep credential has no workspace. Reconnect it and pick one.')
+    throw new NodeOperationError(context.getNode(), 'This Formstep credential has no workspace', {
+      description: 'Reconnect the credential and pick a workspace.',
+    })
   }
   return workspace
 }

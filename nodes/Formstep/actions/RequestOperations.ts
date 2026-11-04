@@ -1,4 +1,5 @@
 import type { IDataObject, IExecuteFunctions } from 'n8n-workflow'
+import { NodeOperationError } from 'n8n-workflow'
 
 import { collectPages, readWorkspace } from '../FormstepCatalog'
 import { formstepApiRequest } from '../GenericFunctions'
@@ -14,15 +15,21 @@ interface ListFilters {
 
 type OperationRunner = (context: IExecuteFunctions, itemIndex: number, fieldsOf: FieldLookup) => Promise<IDataObject | IDataObject[]>
 
+/** How an operation shapes the whole request Formstep answered with. */
+type RequestShape = (request: IDataObject) => IDataObject
+
+const rawRequest: RequestShape = (request) => request
+
 /** A Formstep timestamp, Unix milliseconds, as ISO 8601; unset stays null. */
 function toIsoTimestamp(value: unknown): string | null {
   return typeof value === 'number' ? new Date(value).toISOString() : null
 }
 
 /**
- * What 'Simplify' returns for a request: the fields most workflows read,
- * flattened, with ISO 8601 timestamps. `answers` comes with Get, which has
- * them once the request is completed; Get Many never lists answers.
+ * What 'Simplify' and the 'Simplified' output return for a request: the fields
+ * most workflows read, flattened, with ISO 8601 timestamps. `answers` comes
+ * with Get, which has them once the request is completed; no other operation
+ * answers with them.
  */
 export function simplifyRequest(request: IDataObject): IDataObject {
   const recipient = (request.recipient ?? {}) as IDataObject
@@ -40,10 +47,46 @@ export function simplifyRequest(request: IDataObject): IDataObject {
   }
 }
 
-/** 'Simplify' exists from version 3 on; earlier versions keep the raw response their workflows read. */
-function simplifies(context: IExecuteFunctions, itemIndex: number): boolean {
-  if (context.getNode().typeVersion < 3) return false
-  return context.getNodeParameter('simplify', itemIndex, true) as boolean
+/** The 'Selected Fields' output: the request ID and the picked fields the response has, as Formstep sent them. */
+function pickFields(request: IDataObject, fields: string[]): IDataObject {
+  const picked: IDataObject = { id: request.id }
+  for (const field of fields) {
+    if (field in request) picked[field] = request[field]
+  }
+  return picked
+}
+
+/** The 'Output' parameter, version 5 on. */
+function outputShape(context: IExecuteFunctions, itemIndex: number): RequestShape {
+  const output = context.getNodeParameter('output', itemIndex, 'simplified') as string
+  switch (output) {
+    case 'simplified':
+      return simplifyRequest
+    case 'raw':
+      return rawRequest
+    case 'selected': {
+      const fields = context.getNodeParameter('outputFields', itemIndex, []) as string[]
+      return (request) => pickFields(request, fields)
+    }
+    default:
+      throw new NodeOperationError(context.getNode(), `'Output' value ${output} is not supported`, {
+        itemIndex,
+        description: "Pick 'Simplified', 'Raw' or 'Selected Fields' under 'Output'.",
+      })
+  }
+}
+
+/** Get and Get Many: 'Simplify' on versions 3 and 4; earlier versions keep the raw response their workflows read. */
+function readShape(context: IExecuteFunctions, itemIndex: number): RequestShape {
+  const { typeVersion } = context.getNode()
+  if (typeVersion >= 5) return outputShape(context, itemIndex)
+  if (typeVersion < 3) return rawRequest
+  return context.getNodeParameter('simplify', itemIndex, true) ? simplifyRequest : rawRequest
+}
+
+/** Cancel and Remind: versions before 5 keep the raw response their workflows read. */
+function writeShape(context: IExecuteFunctions, itemIndex: number): RequestShape {
+  return context.getNode().typeVersion >= 5 ? outputShape(context, itemIndex) : rawRequest
 }
 
 function readRequestId(context: IExecuteFunctions, itemIndex: number): string {
@@ -55,6 +98,7 @@ async function listRequests(context: IExecuteFunctions, itemIndex: number): Prom
   const max = returnAll ? Number.POSITIVE_INFINITY : (context.getNodeParameter('limit', itemIndex) as number)
   const scope = context.getNodeParameter('scope', itemIndex) as 'form' | 'workspace'
   const filters = context.getNodeParameter('filters', itemIndex, {}) as ListFilters
+  const shape = readShape(context, itemIndex)
 
   const scopeParams =
     scope === 'form'
@@ -73,7 +117,7 @@ async function listRequests(context: IExecuteFunctions, itemIndex: number): Prom
     },
     max
   )
-  return simplifies(context, itemIndex) ? requests.map(simplifyRequest) : requests
+  return requests.map(shape)
 }
 
 /** Each operation and the Formstep call it makes for one input item. */
@@ -81,20 +125,26 @@ export const REQUEST_OPERATIONS: Record<RequestOperation, OperationRunner> = {
   create: async (context, itemIndex, fieldsOf) =>
     formstepApiRequest<IDataObject>(context, 'requests.create', await buildCreateParams(context, itemIndex, fieldsOf)),
   get: async (context, itemIndex) => {
-    const request = await formstepApiRequest<IDataObject>(context, 'requests.get', { requestId: readRequestId(context, itemIndex) })
-    return simplifies(context, itemIndex) ? simplifyRequest(request) : request
+    const shape = readShape(context, itemIndex)
+    return shape(await formstepApiRequest<IDataObject>(context, 'requests.get', { requestId: readRequestId(context, itemIndex) }))
   },
   getAll: listRequests,
-  remind: async (context, itemIndex) =>
-    formstepApiRequest<IDataObject>(context, 'requests.remind', { requestId: readRequestId(context, itemIndex) }),
+  // The shape is read first: a parameter mistake must stop the node before the reminder goes out.
+  remind: async (context, itemIndex) => {
+    const shape = writeShape(context, itemIndex)
+    return shape(await formstepApiRequest<IDataObject>(context, 'requests.remind', { requestId: readRequestId(context, itemIndex) }))
+  },
   replayCallback: async (context, itemIndex) =>
     formstepApiRequest<IDataObject>(context, 'requests.replayCallback', { requestId: readRequestId(context, itemIndex) }),
   cancel: async (context, itemIndex) => {
     const reason = context.getNodeParameter('reason', itemIndex, '') as string
-    return formstepApiRequest<IDataObject>(context, 'requests.cancel', {
-      requestId: readRequestId(context, itemIndex),
-      ...(reason ? { reason } : {}),
-    })
+    const shape = writeShape(context, itemIndex)
+    return shape(
+      await formstepApiRequest<IDataObject>(context, 'requests.cancel', {
+        requestId: readRequestId(context, itemIndex),
+        ...(reason ? { reason } : {}),
+      })
+    )
   },
 }
 

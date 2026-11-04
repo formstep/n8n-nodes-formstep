@@ -4,6 +4,9 @@ export const FORMSTEP_API_PATH = '/api/v1'
 
 export const FORMSTEP_API_RESOURCE_URL = `${DEFAULT_FORMSTEP_API_URL}${FORMSTEP_API_PATH}`
 
+/** What to do next when Formstep answers with something no workflow setting can change. */
+export const FORMSTEP_RETRY_HINT = 'Run the node again. If this keeps happening, write to support@formstep.io with the time of this execution.'
+
 export const FORMSTEP_API_KEY_CREDENTIAL_TYPE = 'formstepApi'
 
 /**

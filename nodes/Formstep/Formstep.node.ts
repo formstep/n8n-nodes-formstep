@@ -27,8 +27,8 @@ export class Formstep implements INodeType {
     name: 'formstep',
     icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['transform'],
-    version: [1, 2, 3, 4],
-    defaultVersion: 4,
+    version: [1, 2, 3, 4, 5],
+    defaultVersion: 5,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
     description: 'Create, read, cancel and remind Formstep requests, and pause a workflow until the recipient completes one',
     defaults: {
@@ -49,7 +49,9 @@ export class Formstep implements INodeType {
     const returnData: INodeExecutionData[] = []
     const operation = this.getNodeParameter('operation', 0) as string
     if (!isRequestOperation(operation)) {
-      throw new NodeOperationError(this.getNode(), `The operation "${operation}" is not supported`)
+      throw new NodeOperationError(this.getNode(), `The operation "${operation}" is not supported`, {
+        description: "Pick one of the listed operations under 'Operation'.",
+      })
     }
     const run = REQUEST_OPERATIONS[operation]
     const fieldsOf = createFieldLookup(this)

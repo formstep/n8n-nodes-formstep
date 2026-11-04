@@ -9,7 +9,7 @@ import type {
 import { NodeApiError } from 'n8n-workflow'
 
 import { credentialTypeOf } from './Authentication'
-import { FORMSTEP_API_RESOURCE_URL } from './constants'
+import { FORMSTEP_API_RESOURCE_URL, FORMSTEP_RETRY_HINT } from './constants'
 
 export type FormstepRpcContext = IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions | IWebhookFunctions
 
@@ -88,6 +88,10 @@ function formstepError(context: FormstepRpcContext, error: FormstepApiError, htt
   )
 }
 
+function invalidResponse(context: FormstepRpcContext): NodeApiError {
+  return new NodeApiError(context.getNode(), { message: 'Invalid response from Formstep API' }, { description: FORMSTEP_RETRY_HINT })
+}
+
 /**
  * Call one Formstep JSON-RPC method and return its `data`.
  *
@@ -133,17 +137,17 @@ export async function formstepApiRequest<T = unknown>(
   }
 
   if (!response || typeof response !== 'object') {
-    throw new NodeApiError(context.getNode(), { message: 'Invalid response from Formstep API' })
+    throw invalidResponse(context)
   }
 
   if (response.ok === false) {
     const code = response.error?.code ?? 'INTERNAL_ERROR'
-    const apiError = { ...response.error, code, message: response.error?.message ?? 'Formstep API error' }
+    const apiError = { ...response.error, code, message: response.error?.message ?? 'Formstep refused the call without saying why' }
     throw formstepError(context, apiError, String(ERROR_CODE_TO_HTTP[code] ?? 500))
   }
 
   if (response.ok !== true || !('data' in response)) {
-    throw new NodeApiError(context.getNode(), { message: 'Invalid response from Formstep API' })
+    throw invalidResponse(context)
   }
 
   return response.data

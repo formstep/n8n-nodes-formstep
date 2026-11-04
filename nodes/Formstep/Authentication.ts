@@ -66,7 +66,9 @@ export function credentialTypeOf(context: FormstepRpcContext): string {
   const value = 'getInputData' in context ? context.getNodeParameter('authentication', 0) : context.getNodeParameter('authentication')
   const authentication = AUTHENTICATIONS.find((candidate) => candidate.value === value)
   if (!authentication) {
-    throw new NodeOperationError(context.getNode(), `The authentication "${String(value)}" is not supported`)
+    throw new NodeOperationError(context.getNode(), `The authentication "${String(value)}" is not supported`, {
+      description: "Pick 'API Key' or 'OAuth2' under 'Authentication'.",
+    })
   }
   return authentication.credentialType
 }

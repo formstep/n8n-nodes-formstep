@@ -149,7 +149,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 4,
+      "typeVersion": 5,
       "position": [440, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000067",
       "name": "Send the onboarding form"
@@ -165,10 +165,10 @@
           "mode": "id",
           "value": "={{ $fromAI('request_id', 'The id that Send the onboarding form returned for this client', 'string') }}"
         },
-        "simplify": true
+        "output": "simplified"
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 4,
+      "typeVersion": 5,
       "position": [600, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000068",
       "name": "Check an onboarding"
@@ -186,7 +186,7 @@
         }
       },
       "type": "n8n-nodes-formstep.formstepTool",
-      "typeVersion": 4,
+      "typeVersion": 5,
       "position": [760, 240],
       "id": "a1b2c3d4-0000-4000-8000-000000000069",
       "name": "Remind the client"

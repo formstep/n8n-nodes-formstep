@@ -18,7 +18,7 @@ import {
 } from './constants'
 import { authenticationProperties, formstepCredentials } from './Authentication'
 import type { ListResponse } from './FormstepCatalog'
-import { getForms } from './FormstepMethods'
+import { formLocatorProperty, getForms, listSearch } from './FormstepMethods'
 import { createFormstepWebhookSecret, verifyFormstepWebhookSignature } from './FormstepWebhookSignature'
 import { formstepApiRequest } from './GenericFunctions'
 import { isNodeError } from './NodeErrors'
@@ -32,7 +32,7 @@ const EVENT_OPTIONS: INodePropertyOptions[] = [
     name: 'Public Link Submission Created',
     value: FORMSTEP_WEBHOOK_EVENTS.submissionCreated,
     description:
-      'Runs when a respondent submits the selected form through its public link (event type submission.completed). An edit after submit runs Public Link Submission Updated; a completed request runs Request Completed.',
+      "Runs when a respondent submits the selected form through its public link (event type submission.completed). An edit after submit runs 'Public Link Submission Updated'; a completed request runs 'Request Completed'.",
   },
   {
     name: 'Public Link Submission Updated',
@@ -88,7 +88,8 @@ interface Registration {
 /** The registration the node's parameters describe, or null while the node is not configured. */
 function readRegistration(context: IHookFunctions): Registration | null {
   const webhookUrl = context.getNodeWebhookUrl('default')
-  const formId = context.getNodeParameter('formId') as string
+  // A dropdown up to version 1.1, a resource locator after that; `extractValue` reads both.
+  const formId = context.getNodeParameter('formId', '', { extractValue: true }) as string
   if (!webhookUrl || !formId) return null
 
   const eventType = context.getNodeParameter('event') as FormstepWebhookEvent
@@ -97,7 +98,9 @@ function readRegistration(context: IHookFunctions): Registration | null {
   const idleWindow = context.getNodeParameter('idleWindow')
   if (!isFormstepIdleWindow(idleWindow)) {
     const allowed = FORMSTEP_IDLE_WINDOW_OPTIONS.map((option) => option.value).join(', ')
-    throw new NodeOperationError(context.getNode(), `Idle window must be one of: ${allowed}`)
+    throw new NodeOperationError(context.getNode(), `'Consider Abandoned After' must be one of: ${allowed}`, {
+      description: "Pick one of the listed durations under 'Consider Abandoned After'.",
+    })
   }
   return { webhookUrl, formId, eventType, idleWindow }
 }
@@ -140,8 +143,8 @@ export class FormstepTrigger implements INodeType {
     name: 'formstepTrigger',
     icon: { light: 'file:formstep-logo.svg', dark: 'file:formstep-logo.dark.svg' },
     group: ['trigger'],
-    version: [1, 1.1],
-    defaultVersion: 1.1,
+    version: [1, 1.1, 1.2],
+    defaultVersion: 1.2,
     subtitle: EVENT_SUBTITLE,
     description:
       'Starts the workflow when a Formstep request is completed, expires or is canceled, or when a respondent submits a form through its public link',
@@ -169,7 +172,7 @@ export class FormstepTrigger implements INodeType {
       },
       activationHint: 'Publish the workflow to register the webhook with Formstep. Unpublishing removes it.',
     },
-    // Version 1.1 changes only the default Authentication, to an API key.
+    // Version 1.1 changes only the default Authentication, to an API key. Version 1.2 changes only how the form is picked.
     properties: [
       ...authenticationProperties(1.1),
       {
@@ -179,10 +182,12 @@ export class FormstepTrigger implements INodeType {
         typeOptions: {
           loadOptionsMethod: 'getForms',
         },
+        displayOptions: { show: { '@version': [{ _cnd: { lt: 1.2 } }] } },
         default: '',
         required: true,
         description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
       },
+      formLocatorProperty('The form whose events start this workflow', { show: { '@version': [{ _cnd: { gte: 1.2 } }] } }),
       {
         displayName: 'Event',
         name: 'event',
@@ -190,7 +195,7 @@ export class FormstepTrigger implements INodeType {
         options: EVENT_OPTIONS,
         default: 'submission_created',
         description:
-          'Event to subscribe to. Public link submission events cover the public link only; a completed request runs Request Completed instead. Abandoned needs partial-submission tracking.',
+          "Event to subscribe to. Public link submission events cover the public link only; a completed request runs 'Request Completed' instead. Abandoned needs partial-submission tracking.",
       },
       {
         displayName: 'Consider Abandoned After',
@@ -210,7 +215,7 @@ export class FormstepTrigger implements INodeType {
     ],
   }
 
-  methods = { loadOptions: { getForms } }
+  methods = { loadOptions: { getForms }, listSearch: { searchForms: listSearch.searchForms } }
 
   webhookMethods = {
     default: {

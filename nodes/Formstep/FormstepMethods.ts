@@ -1,12 +1,42 @@
 import type {
+  IDisplayOptions,
   ILoadOptionsFunctions,
   INodeListSearchResult,
+  INodeProperties,
   INodePropertyOptions,
   ResourceMapperFields,
 } from 'n8n-workflow'
 
 import { listFields, listForms, listRequestsPage, searchFormsByName, type FormField, type FormSummary, type RequestSummary } from './FormstepCatalog'
 import { fieldOption, isPrefillable, mappableFields, mapperField } from './FormFields'
+
+/** The Form resource locator of both nodes. Its list needs `listSearch.searchForms` on the node. */
+export function formLocatorProperty(description: string, displayOptions: IDisplayOptions): INodeProperties {
+  return {
+    displayName: 'Form',
+    name: 'formId',
+    type: 'resourceLocator',
+    displayOptions,
+    default: { mode: 'list', value: '' },
+    required: true,
+    description,
+    modes: [
+      {
+        displayName: 'From List',
+        name: 'list',
+        type: 'list',
+        placeholder: 'Select a form...',
+        typeOptions: { searchListMethod: 'searchForms', searchable: true },
+      },
+      {
+        displayName: 'By ID',
+        name: 'id',
+        type: 'string',
+        placeholder: 'e.g. j57d3kq9y8x2m1n0p4r6s5t7v9w8',
+      },
+    ],
+  }
+}
 
 /**
  * A form as a picker lists it. An unpublished form is still offered, since a

@@ -154,13 +154,33 @@ describe('Formstep Trigger description', () => {
     const trigger = new FormstepTrigger()
     const authentication = trigger.description.properties.filter((property) => property.name === 'authentication')
 
-    expect(trigger.description.version).toEqual([1, 1.1])
-    expect(trigger.description.defaultVersion).toBe(1.1)
+    expect(trigger.description.version).toEqual([1, 1.1, 1.2])
+    expect(trigger.description.defaultVersion).toBe(1.2)
     expect(authentication.map((property) => [property.default, property.displayOptions?.show?.['@version']])).toEqual([
       ['oAuth2', [{ _cnd: { lt: 1.1 } }]],
       ['apiKey', [{ _cnd: { gte: 1.1 } }]],
     ])
     expect(trigger.description.credentials?.map((credential) => credential.name)).toEqual(['formstepApi', 'formstepOAuth2Api'])
+  })
+
+  it('picks the form with a resource locator from version 1.2, and keeps the dropdown for saved triggers', () => {
+    const trigger = new FormstepTrigger()
+    const [dropdown, locator, ...others] = trigger.description.properties.filter((property) => property.name === 'formId')
+
+    expect(others).toEqual([])
+    expect(dropdown).toMatchObject({ type: 'options', default: '', displayOptions: { show: { '@version': [{ _cnd: { lt: 1.2 } }] } } })
+    expect(locator).toMatchObject({
+      displayName: 'Form',
+      type: 'resourceLocator',
+      required: true,
+      default: { mode: 'list', value: '' },
+      displayOptions: { show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
+      modes: [
+        expect.objectContaining({ name: 'list', typeOptions: { searchListMethod: 'searchForms', searchable: true } }),
+        expect.objectContaining({ name: 'id', type: 'string' }),
+      ],
+    })
+    expect(trigger.methods.listSearch.searchForms).toBeTypeOf('function')
   })
 
   it('offers the default event first and idle windows shortest first', () => {
@@ -277,6 +297,59 @@ describe('FormstepTrigger.methods.loadOptions.getForms', () => {
 
     await expect(new FormstepTrigger().methods.loadOptions.getForms.call(makeLoadOptionsContext() as never)).rejects.toBeInstanceOf(NodeOperationError)
     expect(mockedRequest).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('FormstepTrigger.methods.listSearch.searchForms', () => {
+  it('lists the forms for the resource locator, and says which are not published', async () => {
+    respond((method) => {
+      if (method === 'workspaces.list') return { items: [{ id: 'ws_1', name: 'Acme' }], hasMore: false }
+      return { items: [{ id: 'f1', name: 'Survey', isPublished: true }, { id: 'f2', name: 'Signup', isPublished: false }], hasMore: false, nextCursor: null }
+    })
+
+    const result = await new FormstepTrigger().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never)
+
+    expect(result).toEqual({ results: [{ name: 'Survey', value: 'f1' }, { name: 'Signup (not published)', value: 'f2' }] })
+  })
+
+  it('asks Formstep for the matching forms with a search term', async () => {
+    respond((method) => {
+      if (method === 'workspaces.list') return { items: [{ id: 'ws_1', name: 'Acme' }], hasMore: false }
+      return { items: [{ id: 'f1', name: 'Survey', isPublished: true }], hasMore: false, nextCursor: null }
+    })
+
+    await new FormstepTrigger().methods.listSearch.searchForms.call(makeLoadOptionsContext() as never, 'sur')
+
+    calledWith('forms.list', { workspaceId: 'ws_1', query: 'sur', limit: 100 })
+  })
+})
+
+describe('FormstepTrigger.webhookMethods.default with the form in a resource locator', () => {
+  /** A hook context whose `formId` is what n8n stores for version 1.2, and which unwraps it only with `extractValue`. */
+  function makeLocatorHookContext() {
+    const ctx = makeHookContext({ webhookUrl: 'https://n8n.example/hook/X' })
+    ctx.getNodeParameter.mockImplementation(((name: string, _fallback?: unknown, options?: { extractValue?: boolean }) => {
+      if (name === 'formId') return options?.extractValue ? 'f1' : { __rl: true, mode: 'list', value: 'f1' }
+      if (name === 'event') return 'submission_created'
+      return undefined
+    }) as never)
+    return ctx
+  }
+
+  it('registers the webhook for the form behind the locator', async () => {
+    respond(() => ({ subscriptionId: 'sub_new' }))
+
+    await new FormstepTrigger().webhookMethods.default.create.call(makeLocatorHookContext() as never)
+
+    expect(mockedRequest).toHaveBeenCalledWith(expect.anything(), 'webhooks.create', expect.objectContaining({ formId: 'f1' }))
+  })
+
+  it('looks for its subscription on the form behind the locator', async () => {
+    respond(() => ({ items: [] }))
+
+    await new FormstepTrigger().webhookMethods.default.checkExists.call(makeLocatorHookContext() as never)
+
+    calledWith('webhooks.list', { formId: 'f1' })
   })
 })
 
